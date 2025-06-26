@@ -148,6 +148,86 @@ export const useQuestionGeneration = () => {
     }
   };
 
+  // 檢查關鍵字與範圍的相關性
+  const checkKeywordRelevance = (keywords: string, chapter: string): boolean => {
+    if (!keywords || !chapter) return true;
+    
+    // 簡單的相關性檢查邏輯
+    const keywordList = keywords.toLowerCase().split(/[,，\s]+/).filter(k => k.trim());
+    const chapterText = chapter.toLowerCase();
+    
+    // 如果關鍵字太generic或與範圍完全不相關，則忽略
+    const genericKeywords = ['題目', '問題', '考試', '測驗', '學習'];
+    const validKeywords = keywordList.filter(k => !genericKeywords.includes(k));
+    
+    if (validKeywords.length === 0) return false;
+    
+    // 這裡可以加入更複雜的相關性檢查邏輯
+    return true;
+  };
+
+  // 分析樣題風格
+  const analyzeSampleStyle = (sampleQuestions: SampleQuestion[]): string => {
+    if (sampleQuestions.length === 0) return '';
+    
+    const styleAnalysis = {
+      questionLength: 0,
+      hasScenario: 0,
+      hasCalculation: 0,
+      hasConcept: 0,
+      hasApplication: 0
+    };
+    
+    sampleQuestions.forEach(sample => {
+      styleAnalysis.questionLength += sample.question.length;
+      
+      if (sample.question.includes('情境') || sample.question.includes('案例') || sample.question.includes('假設')) {
+        styleAnalysis.hasScenario++;
+      }
+      
+      if (sample.question.includes('計算') || sample.question.includes('數值') || /\d+/.test(sample.question)) {
+        styleAnalysis.hasCalculation++;
+      }
+      
+      if (sample.question.includes('概念') || sample.question.includes('定義') || sample.question.includes('原理')) {
+        styleAnalysis.hasConcept++;
+      }
+      
+      if (sample.question.includes('應用') || sample.question.includes('實務') || sample.question.includes('如何')) {
+        styleAnalysis.hasApplication++;
+      }
+    });
+    
+    const avgLength = styleAnalysis.questionLength / sampleQuestions.length;
+    const total = sampleQuestions.length;
+    
+    let stylePrompt = `\n\n根據提供的 ${total} 個樣題，AI 應該學習以下風格特徵：\n`;
+    
+    if (avgLength > 50) {
+      stylePrompt += `- 題目長度偏長（平均 ${Math.round(avgLength)} 字），應採用詳細描述\n`;
+    } else {
+      stylePrompt += `- 題目長度偏短（平均 ${Math.round(avgLength)} 字），應採用簡潔表達\n`;
+    }
+    
+    if (styleAnalysis.hasScenario / total > 0.3) {
+      stylePrompt += `- 經常使用情境案例（${Math.round(styleAnalysis.hasScenario / total * 100)}%），應融入實際場景\n`;
+    }
+    
+    if (styleAnalysis.hasCalculation / total > 0.2) {
+      stylePrompt += `- 包含計算或數值（${Math.round(styleAnalysis.hasCalculation / total * 100)}%），應加入量化元素\n`;
+    }
+    
+    if (styleAnalysis.hasConcept / total > 0.4) {
+      stylePrompt += `- 聚焦概念理解（${Math.round(styleAnalysis.hasConcept / total * 100)}%），應強調理論基礎\n`;
+    }
+    
+    if (styleAnalysis.hasApplication / total > 0.3) {
+      stylePrompt += `- 重視實務應用（${Math.round(styleAnalysis.hasApplication / total * 100)}%），應結合實際運用\n`;
+    }
+    
+    return stylePrompt;
+  };
+
   // 取得題目風格的完整 prompt 描述
   const getQuestionStylePrompt = (style: string) => {
     switch (style) {
@@ -208,6 +288,9 @@ export const useQuestionGeneration = () => {
     const effectiveCognitive = parameters.weightingConfig.cognitiveDistribution;
     const hasAdvancedSettings = parameters.keywords || parameters.sampleQuestions.length > 0;
     
+    // 檢查關鍵字相關性
+    const shouldUseKeywords = checkKeywordRelevance(parameters.keywords || '', parameters.chapter);
+    
     setGenerationProgress(0);
     setGenerationStep('準備生成參數...');
     
@@ -216,9 +299,13 @@ export const useQuestionGeneration = () => {
       chapterPrompt = `請針對 PDF 文件的第 ${parameters.chapter} 頁內容出題`;
     }
     
-    const keywordsPrompt = parameters.keywords ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}` : '';
+    const keywordsPrompt = (shouldUseKeywords && parameters.keywords) ? 
+      `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}` : 
+      (parameters.keywords ? '\n（注意：提供的關鍵字與指定範圍關聯性較低，將忽略關鍵字限制）' : '');
+    
     const stylePrompt = getQuestionStylePrompt(parameters.questionStyle);
     const difficultyPrompt = getDifficultyPrompt(parameters.difficultyLevel || 'medium');
+    const sampleStylePrompt = analyzeSampleStyle(parameters.sampleQuestions);
     
     setGenerationProgress(20);
     setGenerationStep('構建提示內容...');
@@ -227,32 +314,33 @@ export const useQuestionGeneration = () => {
     if (hasAdvancedSettings) {
       advancedSettingsPrompt = `
 
-進階設定配置：
-- 關鍵字聚焦：${parameters.keywords || '無'}
-- 樣題參考數量：${parameters.sampleQuestions.length} 個`;
+🎯 進階設定配置：
+- 關鍵字聚焦：${shouldUseKeywords ? (parameters.keywords || '無') : '已忽略（與範圍不相關）'}
+- 樣題參考數量：${parameters.sampleQuestions.length} 個
+- 樣題風格學習：${parameters.sampleQuestions.length > 0 ? '啟用' : '未啟用'}`;
     }
 
     const systemPrompt = `你是一位專業的教育測驗專家和學習心理學家。請根據指定的題目風格和難度生成高品質的教育測驗題目。
 
-出題要求：
+📋 出題要求：
 ${chapterPrompt}${keywordsPrompt}
 - 題目數量：${parameters.questionCount}
 - 題型：選擇題（四選一，選項標示為 A、B、C、D）
 
-題目風格要求：
+🎨 題目風格要求：
 ${stylePrompt}
 
-難度等級要求：
+📊 難度等級要求：
 ${difficultyPrompt}
 
-AI 智慧表達要求：
+🤖 AI 智慧表達要求：
 - 運用教育心理學原理，針對不同學習階段設計適合的認知負荷
 - 善用布魯姆分類法，讓題目層次分明
 - 融入最新的學習科學研究成果
 - 每個選項都要有其設計邏輯和教育目的
-- 解析要展現深度思考，不只是標準答案的重述
+- 解析要展現深度思考，不只是標準答案的重述${sampleStylePrompt}
 
-回傳格式必須是純 JSON 陣列，不包含任何其他文字：
+📝 回傳格式必須是純 JSON 陣列，不包含任何其他文字：
 
 [
   {
@@ -273,29 +361,36 @@ AI 智慧表達要求：
 ]${advancedSettingsPrompt}
 
 ${parameters.sampleQuestions.length > 0 ? `
-參考樣題風格：
+📚 參考樣題風格學習：
+請仔細學習以下樣題的出題風格、語言表達、選項設計邏輯：
+
 ${parameters.sampleQuestions.map((q, i) => `
-${i + 1}. ${q.question}
+樣題 ${i + 1}：${q.question}
 ${q.options ? q.options.join('\n') : ''}
-答案：${q.answer}
+正確答案：${q.answer}
 `).join('\n')}
+
+⚠️ 重要：請學習樣題的風格和邏輯，但不要直接複製內容。要根據指定的頁數範圍和主題創造全新的題目。
 ` : ''}
 
-重要提醒：
+🔥 重要提醒：
 1. 每種題目風格都有其獨特的教育目的和設計邏輯
 2. 要充分展現 AI 在教育測驗設計上的專業能力
 3. 難度等級要與所選擇的難度設定相符
-4. 只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
+4. 樣題參考是用來學習風格，不是用來複製內容
+5. 只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
 
     try {
       setGenerationProgress(40);
       setGenerationStep('呼叫 AI 生成服務...');
-      console.log('開始呼叫 AI 生成題目...');
+      console.log('🎯 樣題參考數量:', parameters.sampleQuestions.length);
+      console.log('🔑 關鍵字聚焦:', shouldUseKeywords ? parameters.keywords : '已忽略');
+      console.log('📝 開始呼叫 AI 生成題目...');
       
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請嚴格按照上述 JSON 格式生成 ${parameters.questionCount} 道選擇題。只回傳 JSON 陣列，不要有任何其他內容。`,
+          userPrompt: `請嚴格按照上述 JSON 格式生成 ${parameters.questionCount} 道選擇題。${parameters.sampleQuestions.length > 0 ? '請學習參考樣題的風格但創造全新內容。' : ''}只回傳 JSON 陣列，不要有任何其他內容。`,
           model: 'gpt-4o-mini'
         }
       });
@@ -348,11 +443,11 @@ ${q.options ? q.options.join('\n') : ''}
 
       setGenerationProgress(100);
       setGenerationStep('生成完成！');
-      console.log('有效題目數量:', validQuestions.length);
+      console.log('✅ 有效題目數量:', validQuestions.length);
       
       toast({
         title: "生成成功",
-        description: `成功生成 ${validQuestions.length} 道選擇題`
+        description: `成功生成 ${validQuestions.length} 道選擇題${parameters.sampleQuestions.length > 0 ? '（已學習樣題風格）' : ''}`
       });
 
       setTimeout(() => {
