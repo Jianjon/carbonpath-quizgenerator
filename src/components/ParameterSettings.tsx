@@ -101,6 +101,11 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
     updateParameter('chapter', topicsString);
   };
 
+  // 處理進階設定勾選狀態
+  const handleAdvancedSettingsChange = (checked: boolean | "indeterminate") => {
+    setAdvancedSettingsEnabled(checked === true);
+  };
+
   // 獲取有效的進階設定配置
   const getEffectiveAdvancedConfig = () => {
     if (!advancedSettingsEnabled) {
@@ -316,7 +321,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               <Checkbox
                 id="advanced-settings"
                 checked={advancedSettingsEnabled}
-                onCheckedChange={setAdvancedSettingsEnabled}
+                onCheckedChange={handleAdvancedSettingsChange}
               />
               <Label htmlFor="advanced-settings" className="text-sm font-medium">
                 啟用進階設定
