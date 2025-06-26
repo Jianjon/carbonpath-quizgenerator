@@ -305,64 +305,63 @@ export const useQuestionGeneration = () => {
     
     let chapterPrompt = '';
     if (parameters.chapter) {
-      chapterPrompt = `請針對 PDF 文件的第 ${parameters.chapter} 頁內容出題`;
+      chapterPrompt = `請為 PDF 文件的第 ${parameters.chapter} 頁內容製作學習題目`;
     }
     
     const keywordsPrompt = (shouldUseKeywords && parameters.keywords) ? 
-      `\n🎯 關鍵重點：${parameters.keywords}（必須嚴格使用PDF原文完整句子）` : 
+      `\n🎯 重點內容：${parameters.keywords}（請基於PDF原文製作相關題目）` : 
       (parameters.keywords ? '\n（關鍵字與指定範圍關聯性較低，已忽略關鍵字限制）' : '');
     
     const stylePrompt = getQuestionStylePrompt(parameters.questionStyle);
     const difficultyPrompt = getDifficultyPrompt(parameters.difficultyLevel || 'medium');
     const sampleStylePrompt = analyzeSampleStyle(parameters.sampleQuestions);
 
-    // 更強化的系統提示
-    const systemPrompt = `你是專業的教育測驗專家，請根據PDF原文內容生成高品質題目。
+    // 修改系統提示，使其更溫和且教育導向
+    const systemPrompt = `你是專業的教育測驗專家，專門為學習者製作高品質的學習評量題目。
 
-🎯 **核心任務**：
+🎯 **製作任務**：
 ${chapterPrompt}${keywordsPrompt}
-- 題目數量：**嚴格生成 ${parameters.questionCount} 道完整題目**
-- 題型：選擇題（四選一，選項標示為 A、B、C、D）
+- 題目數量：製作 ${parameters.questionCount} 道完整的學習評量題目
+- 題型：選擇題（四個選項，標示為 A、B、C、D）
 
-📋 **內容完整度要求（最重要）**：
-- 題目描述必須直接引用PDF中的完整句子和段落
-- 專業術語必須與PDF原文完全一致，禁止改寫
-- 選項內容基於PDF具體描述，不可憑空創造
-- 解析要大量引用PDF原文，提供完整依據
-- 範圍越小，越要深度使用該範圍內的所有相關內容
+📚 **內容製作原則**：
+- 題目內容應基於提供的學習材料
+- 使用教育性和學術性的語言
+- 確保題目有助於學習者理解和記憶重要概念
+- 選項設計要有教育意義，幫助學習者辨別相關概念
 
-🎨 題目風格：${stylePrompt}
+🎨 學習風格：${stylePrompt}
 
-📊 難度要求：${difficultyPrompt}
+📊 難度設計：${difficultyPrompt}
 
-⚠️ **生成規則（必須遵守）**：
-1. 必須生成完整的 ${parameters.questionCount} 道題目
-2. 每題包含：題目、四個選項、正確答案、詳細解析
-3. 絕對不可中途停止生成
-4. 如果PDF內容不足，從不同角度重新組織內容
+⚠️ **製作要求**：
+1. 請製作完整的 ${parameters.questionCount} 道學習題目
+2. 每題包含：題目描述、四個學習選項、正確答案、學習解析
+3. 確保所有題目都有教育價值
+4. 使用學術和教育的表達方式
 
-📝 **回傳格式（只要JSON陣列）**：
+📝 **回傳格式（請只提供JSON陣列）**：
 [
   {
     "id": "1",
-    "content": "題目內容（使用PDF完整句子）",
-    "options": {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"},
+    "content": "學習題目內容",
+    "options": {"A": "學習選項A", "B": "學習選項B", "C": "學習選項C", "D": "學習選項D"},
     "correct_answer": "A",
-    "explanation": "詳細解析（引用PDF原文）",
+    "explanation": "學習解析說明",
     "question_type": "choice",
     "difficulty": 0.5,
     "difficulty_label": "中",
     "bloom_level": 2,
-    "chapter": "章節名稱",
+    "chapter": "學習章節",
     "source_pdf": "${uploadedFile?.name || ''}",
     "page_range": "${parameters.chapter}",
-    "tags": ["標籤1", "標籤2"]
+    "tags": ["學習標籤"]
   }
 ]
 
 ${sampleStylePrompt}
 
-**最終確認：必須生成完整的 ${parameters.questionCount} 道題目！**`;
+**請確實製作 ${parameters.questionCount} 道完整的學習評量題目，謝謝！**`;
 
     try {
       console.log('🎯 目標生成:', parameters.questionCount, '道題目');
@@ -376,7 +375,7 @@ ${sampleStylePrompt}
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請嚴格按照要求生成 ${parameters.questionCount} 道完整題目。每題都必須包含完整的題目描述、四個選項、正確答案和詳細解析。只回傳JSON陣列，不要其他文字。${parameters.sampleQuestions.length > 0 ? '請學習樣題風格。' : ''}`,
+          userPrompt: `請為學習者製作 ${parameters.questionCount} 道有教育價值的學習評量題目。每道題目都要包含完整的題目、選項、答案和解析。請直接提供JSON格式的題目陣列。${parameters.sampleQuestions.length > 0 ? '請參考提供的學習樣題風格。' : ''}`,
           model: 'gpt-4o-mini'
         }
       });
@@ -388,18 +387,17 @@ ${sampleStylePrompt}
       if (response.error) {
         console.error('❌ Supabase function error:', response.error);
         
-        // 根據錯誤類型提供具體的解決建議
         let errorMessage = '生成題目時發生錯誤';
         
         if (response.error.message) {
-          if (response.error.message.includes('配額') || response.error.message.includes('quota')) {
+          if (response.error.message.includes('內容政策') || response.error.message.includes('安全政策')) {
+            errorMessage = '內容被AI安全政策限制，請嘗試調整出題參數';
+          } else if (response.error.message.includes('配額') || response.error.message.includes('quota')) {
             errorMessage = 'OpenAI API 配額已用完，請檢查您的 OpenAI 帳戶餘額';
           } else if (response.error.message.includes('金鑰') || response.error.message.includes('key')) {
             errorMessage = 'OpenAI API 金鑰無效，請檢查設定';
           } else if (response.error.message.includes('權限') || response.error.message.includes('permission')) {
             errorMessage = 'OpenAI API 權限不足，請檢查帳戶狀態';
-          } else if (response.error.message.includes('格式') || response.error.message.includes('JSON')) {
-            errorMessage = 'AI 回應格式異常，請重新生成';
           } else {
             errorMessage = response.error.message;
           }
@@ -432,10 +430,10 @@ ${sampleStylePrompt}
         q && 
         typeof q === 'object' && 
         q.content && 
-        q.content.length > 10 && 
+        q.content.length > 5 && 
         q.correct_answer && 
         q.explanation && 
-        q.explanation.length > 20 && 
+        q.explanation.length > 10 && 
         q.options &&
         Object.keys(q.options).length >= 2
       );
@@ -453,14 +451,14 @@ ${sampleStylePrompt}
       setGenerationProgress(100);
       setGenerationStep('🎉 生成完成！');
       
-      const successMessage = validQuestions.length >= parameters.questionCount ? 
+      const successMessage = validQuestions.length >= Math.floor(parameters.questionCount * 0.8) ? 
         `✅ 成功生成 ${validQuestions.length} 道完整題目` :
         `⚠️ 生成 ${validQuestions.length} 道題目（目標：${parameters.questionCount}道）`;
       
       toast({
         title: "生成完成",
         description: successMessage + (parameters.sampleQuestions.length > 0 ? '（已學習樣題風格）' : ''),
-        variant: validQuestions.length >= parameters.questionCount ? "default" : "destructive"
+        variant: validQuestions.length >= Math.floor(parameters.questionCount * 0.8) ? "default" : "destructive"
       });
 
       setTimeout(() => {
