@@ -10,15 +10,14 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { systemPrompt, userPrompt, model = 'gpt-4.1-2025-04-14' } = await req.json();
+    const { systemPrompt, userPrompt, model = 'o3-2025-04-16' } = await req.json();
 
-    console.log('🎯 積極生成淨零iPAS題目請求');
+    console.log('🔥 超嚴格PDF內容出題請求');
     console.log('模型:', model);
     console.log('系統提示長度:', systemPrompt?.length || 0);
     console.log('用戶提示預覽:', userPrompt?.substring(0, 100) + '...');
@@ -28,21 +27,19 @@ serve(async (req) => {
       throw new Error('OpenAI API 金鑰未配置');
     }
 
-    // 動態調整參數以處理大量題目
     const questionCount = parseInt(userPrompt.match(/(\d+)\s*道/)?.[1] || '10');
     console.log('📊 預計生成題目數量:', questionCount);
     
-    // 根據題目數量動態調整max_tokens
-    let maxTokens = 6000;
+    let maxTokens = 8000;
     if (questionCount > 15) {
-      maxTokens = 10000;
+      maxTokens = 12000;
     } else if (questionCount > 10) {
-      maxTokens = 8000;
+      maxTokens = 10000;
     }
     
     console.log('🔧 設定最大tokens:', maxTokens);
 
-    // 使用更積極的參數設定
+    // 使用最強推理模型確保嚴格遵循PDF內容
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -55,11 +52,11 @@ serve(async (req) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3, // 提高創造性
+        temperature: 0.1, // 極低溫度確保嚴格遵循指令
         max_tokens: maxTokens,
-        top_p: 0.9,
-        frequency_penalty: 0.2,
-        presence_penalty: 0.3,
+        top_p: 0.8,
+        frequency_penalty: 0.3,
+        presence_penalty: 0.4,
       }),
     });
 
@@ -96,16 +93,14 @@ serve(async (req) => {
       console.warn('⚠️ 回應被截斷，嘗試部分處理');
     }
 
-    // 更寬鬆的內容不足檢查 - 只有明確拒絕才算失敗
+    // 檢查是否有明確拒絕出題的回應
     const explicitRefusalKeywords = [
       '抱歉，我無法',
       '我不能提供',
       '不能生成這類內容',
       'I cannot',
       'I\'m sorry, I cannot',
-      'unable to provide',
-      '完全無法生成',
-      '絕對無法出題'
+      'unable to provide'
     ];
     
     const isExplicitRefusal = explicitRefusalKeywords.some(keyword => 
@@ -115,52 +110,6 @@ serve(async (req) => {
     if (isExplicitRefusal) {
       console.error('❌ AI 明確拒絕生成內容:', generatedText.substring(0, 200));
       throw new Error('系統暫時無法處理此教材內容，請嘗試調整出題設定');
-    }
-
-    // 檢查是否提到內容不足，但不直接失敗
-    const contentInsufficientKeywords = [
-      '內容不足',
-      '不足以生成',
-      '建議減少題目數量',
-      '擴大頁數範圍'
-    ];
-    
-    const mentionsInsufficient = contentInsufficientKeywords.some(keyword => 
-      generatedText.includes(keyword)
-    );
-
-    // 如果提到內容不足但仍有生成題目，給出警告但繼續處理
-    if (mentionsInsufficient && !generatedText.includes('[')) {
-      console.log('⚠️ AI 提到內容不足且沒有生成題目:', generatedText);
-      
-      // 嘗試用更寬鬆的要求重新生成
-      console.log('🔄 嘗試用更寬鬆的要求重新生成');
-      const fallbackPrompt = `請盡力基於提供的PDF內容生成至少3道題目。即使內容有限，也要發揮創意，基於現有內容出題。不要回覆"內容不足"，請直接生成題目。`;
-      
-      const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: fallbackPrompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 4000,
-        }),
-      });
-
-      if (fallbackResponse.ok) {
-        const fallbackData = await fallbackResponse.json();
-        if (fallbackData.choices?.[0]?.message?.content) {
-          generatedText = fallbackData.choices[0].message.content.trim();
-          console.log('🔄 重新生成成功:', generatedText.substring(0, 200));
-        }
-      }
     }
 
     // 強化的JSON清理和修復邏輯
@@ -180,38 +129,7 @@ serve(async (req) => {
     if (jsonStart === -1 || jsonEnd === -1) {
       console.error('❌ 没有找到有效的JSON結構');
       console.error('生成內容樣本:', generatedText.substring(0, 500));
-      
-      // 使用淨零iPAS樣題模板作為最後備用
-      console.log('🔧 使用淨零iPAS樣題模板');
-      const backupQuestions = [];
-      
-      // 生成多個不同的備用題目
-      for (let i = 1; i <= Math.min(questionCount, 5); i++) {
-        backupQuestions.push({
-          id: i.toString(),
-          content: `關於淨零排放政策與實務（第${i}題），下列何者正確？`,
-          options: {
-            "A": "台灣2050年淨零排放目標已正式宣布",
-            "B": "碳盤查僅適用於大型企業", 
-            "C": "產品碳足跡等同於企業碳足跡",
-            "D": "以上皆非"
-          },
-          correct_answer: "A",
-          explanation: "我國已正式宣布2050淨零排放目標，並制定相關路徑規劃。",
-          question_type: "choice",
-          difficulty: 0.5,
-          difficulty_label: "中",
-          bloom_level: 2,
-          chapter: "淨零iPAS",
-          source_pdf: "",
-          page_range: "",
-          tags: ["淨零排放", "政策目標"]
-        });
-      }
-      
-      return new Response(JSON.stringify({ generatedText: JSON.stringify(backupQuestions) }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('AI生成的內容格式不正確，請重新嘗試');
     }
 
     let cleanedText = generatedText.substring(jsonStart, jsonEnd + 1);
@@ -221,9 +139,7 @@ serve(async (req) => {
     if (data.choices[0].finish_reason === 'length') {
       console.log('🔧 嘗試修復被截斷的JSON');
       
-      // 如果是陣列被截斷，嘗試補上結尾
       if (cleanedText.startsWith('[') && !cleanedText.endsWith(']')) {
-        // 找到最後一個完整的物件
         let lastCompleteObjectEnd = -1;
         let braceCount = 0;
         let inString = false;
@@ -273,53 +189,7 @@ serve(async (req) => {
     } catch (parseError) {
       console.error('❌ JSON 解析失敗:', parseError.message);
       console.error('❌ 問題內容前500字:', cleanedText.substring(0, 500));
-      
-      // 嘗試逐行解析，提取有效的JSON物件
-      console.log('🔧 嘗試逐行解析');
-      const lines = cleanedText.split('\n');
-      const validObjects = [];
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-          try {
-            const obj = JSON.parse(trimmed);
-            if (obj.content && obj.options && obj.correct_answer) {
-              validObjects.push(obj);
-            }
-          } catch (e) {
-            // 忽略無效行
-          }
-        }
-      }
-      
-      if (validObjects.length > 0) {
-        console.log('🔧 逐行解析成功，獲得', validObjects.length, '道題目');
-        questions = validObjects;
-      } else {
-        // 生成基本題目而不是放棄
-        console.log('🔧 生成基本淨零iPAS題目');
-        questions = [{
-          id: "1",
-          content: "關於我國淨零排放政策，下列何者正確？",
-          options: {
-            "A": "目標年份為2050年",
-            "B": "目標年份為2030年", 
-            "C": "目標年份為2060年",
-            "D": "尚未設定明確目標"
-          },
-          correct_answer: "A",
-          explanation: "我國已宣布2050年達成淨零排放的目標。",
-          question_type: "choice",
-          difficulty: 0.3,
-          difficulty_label: "易",
-          bloom_level: 1,
-          chapter: "淨零iPAS",
-          source_pdf: "",
-          page_range: "",
-          tags: ["淨零排放", "政策目標"]
-        }];
-      }
+      throw new Error('AI生成的題目格式解析失敗，請重新嘗試');
     }
 
     // 確保格式正確
@@ -331,7 +201,7 @@ serve(async (req) => {
       }
     }
 
-    // 驗證題目完整性並自動補全
+    // 嚴格驗證題目完整性
     const validQuestions = questions.filter(q => {
       return q && 
              typeof q === 'object' && 
@@ -359,39 +229,20 @@ serve(async (req) => {
       tags: q.tags || ['淨零iPAS']
     }));
 
-    console.log('📊 題目驗證結果:');
+    console.log('📊 嚴格題目驗證結果:');
     console.log(`總生成數: ${questions.length}`);
     console.log(`有效題目: ${validQuestions.length}`);
     console.log(`完成率: ${Math.round((validQuestions.length / questionCount) * 100)}%`);
 
-    // 更寬鬆的成功標準
+    // 檢查每道題目是否嚴格遵循頁數範圍
+    validQuestions.forEach((q, index) => {
+      if (!q.explanation.includes('第') && !q.explanation.includes('頁')) {
+        console.warn(`⚠️ 題目 ${index + 1} 可能未嚴格遵循頁數限制: ${q.content}`);
+      }
+    });
+
     if (validQuestions.length === 0) {
-      // 即使沒有有效題目，也生成一個基本題目
-      console.log('🔧 生成基本保底題目');
-      const fallbackQuestion = {
-        id: "1",
-        content: "關於碳排放管理，下列何者為正確概念？",
-        options: {
-          "A": "碳盤查是測量組織溫室氣體排放的過程",
-          "B": "碳盤查只適用於製造業",
-          "C": "碳盤查不需要第三方驗證",
-          "D": "碳盤查結果不需要公開"
-        },
-        correct_answer: "A",
-        explanation: "碳盤查是系統性測量和計算組織溫室氣體排放量的過程。",
-        question_type: "choice",
-        difficulty: 0.4,
-        difficulty_label: "中",
-        bloom_level: 2,
-        chapter: "淨零iPAS",
-        source_pdf: "",
-        page_range: "",
-        tags: ["碳盤查", "溫室氣體"]
-      };
-      
-      return new Response(JSON.stringify({ generatedText: JSON.stringify([fallbackQuestion]) }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('沒有生成有效的題目，請重新嘗試');
     }
 
     return new Response(JSON.stringify({ generatedText: JSON.stringify(validQuestions) }), {
@@ -402,20 +253,8 @@ serve(async (req) => {
     console.error('💥 處理錯誤:', error.message);
     console.error('💥 錯誤堆疊:', error.stack);
     
-    let userMessage = error.message;
-    
-    if (error.message.includes('API')) {
-      userMessage = error.message;
-    } else if (error.message.includes('JSON') || error.message.includes('格式')) {
-      userMessage = '題目格式處理異常，已生成基本題目';
-    } else if (error.message.includes('網路') || error.message.includes('連接')) {
-      userMessage = '網路連接問題，請檢查後重試';
-    } else {
-      userMessage = '生成過程遇到問題，已盡力生成基本題目';
-    }
-    
     return new Response(JSON.stringify({ 
-      error: userMessage,
+      error: error.message,
       technical_details: error.message,
       timestamp: new Date().toISOString()
     }), {
