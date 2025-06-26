@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -111,13 +110,14 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, par
         <meta charset="utf-8">
         <title>題庫</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
+          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
           .question { margin-bottom: 30px; page-break-inside: avoid; }
-          .question-title { font-weight: bold; margin-bottom: 10px; }
+          .question-title { font-weight: bold; margin-bottom: 10px; font-size: 16px; }
           .options { margin: 10px 0; }
-          .option { margin: 5px 0; }
-          .correct { color: green; font-weight: bold; }
-          .explanation { background: #f5f5f5; padding: 10px; margin-top: 10px; }
+          .option { margin: 5px 0; padding: 5px 0; }
+          .answer { font-weight: bold; margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px; }
+          .explanation { background: #f5f5f5; padding: 10px; margin-top: 10px; border-radius: 5px; }
+          .explanation-title { font-weight: bold; margin-bottom: 5px; }
         </style>
       </head>
       <body>
@@ -127,11 +127,13 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, par
             <div class="question-title">第 ${index + 1} 題：${q.content}</div>
             <div class="options">
               ${Object.entries(q.options).map(([key, value]) => 
-                `<div class="option ${key === q.correct_answer ? 'correct' : ''}">${key}. ${value}</div>`
+                `<div class="option">${key}. ${value}</div>`
               ).join('')}
             </div>
+            <div class="answer">正確答案：${q.correct_answer}</div>
             <div class="explanation">
-              <strong>解析：</strong>${q.explanation}
+              <div class="explanation-title">答案精簡說明：</div>
+              ${q.explanation}
             </div>
           </div>
         `).join('')}
@@ -148,19 +150,15 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, par
   // 下載為Excel
   const downloadAsExcel = () => {
     const csvContent = [
-      ['題號', '題目內容', '選項A', '選項B', '選項C', '選項D', '正確答案', '解析', '難度', '章節', '標籤'],
-      ...questions.map((q, index) => [
-        index + 1,
+      ['題目', '答案', '選項1', '選項2', '選項3', '選項4', '答案精簡說明'],
+      ...questions.map((q) => [
         q.content,
+        q.correct_answer,
         q.options.A || '',
         q.options.B || '',
         q.options.C || '',
         q.options.D || '',
-        q.correct_answer,
-        q.explanation,
-        q.difficulty_label || '中',
-        q.chapter || '',
-        (q.tags || []).join(', ')
+        q.explanation
       ])
     ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
 
