@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,7 +9,6 @@ import { Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { WeightingSystem } from './WeightingSystem';
 import { Checkbox } from '@/components/ui/checkbox';
-
 interface SampleQuestion {
   id: string;
   question: string;
@@ -18,13 +16,11 @@ interface SampleQuestion {
   options?: string[];
   answer: string;
 }
-
 interface ChapterWeight {
   name: string;
   weight: number;
   questions: number;
 }
-
 interface WeightingConfig {
   chapterWeights: ChapterWeight[];
   difficultyDistribution: {
@@ -45,9 +41,7 @@ interface WeightingConfig {
     essay: number;
   };
 }
-
 type ChapterType = 'topic' | 'pages';
-
 interface Parameters {
   chapter: string;
   chapterType: ChapterType;
@@ -58,48 +52,55 @@ interface Parameters {
   weightingConfig: WeightingConfig;
   keywords?: string;
 }
-
 interface ParameterSettingsProps {
   parameters: Parameters;
   onParametersChange: (parameters: Parameters) => void;
   uploadedFile?: File | null;
 }
-
 export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   parameters,
   onParametersChange,
   uploadedFile
 }) => {
   const [advancedSettingsEnabled, setAdvancedSettingsEnabled] = useState(false);
-
   const updateParameter = <K extends keyof Parameters,>(key: K, value: Parameters[K]) => {
     onParametersChange({
       ...parameters,
       [key]: value
     });
   };
-
   const updateQuestionCount = (newCount: number) => {
     onParametersChange({
       ...parameters,
       questionCount: newCount
     });
   };
-
   const updateWeightingConfig = (config: WeightingConfig) => {
     updateParameter('weightingConfig', config);
   };
-
   const handleAdvancedSettingsChange = (checked: boolean | "indeterminate") => {
     setAdvancedSettingsEnabled(checked === true);
   };
-
   const getEffectiveAdvancedConfig = () => {
     if (!advancedSettingsEnabled) {
       return {
-        difficultyDistribution: { easy: 20, medium: 60, hard: 20 },
-        cognitiveDistribution: { remember: 20, understand: 40, apply: 30, analyze: 10 },
-        questionTypeWeights: { multipleChoice: 70, trueFalse: 15, shortAnswer: 10, essay: 5 },
+        difficultyDistribution: {
+          easy: 20,
+          medium: 60,
+          hard: 20
+        },
+        cognitiveDistribution: {
+          remember: 20,
+          understand: 40,
+          apply: 30,
+          analyze: 10
+        },
+        questionTypeWeights: {
+          multipleChoice: 70,
+          trueFalse: 15,
+          shortAnswer: 10,
+          essay: 5
+        },
         keywords: '',
         sampleQuestions: []
       };
@@ -112,28 +113,28 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
       sampleQuestions: parameters.sampleQuestions
     };
   };
-
   const getDifficultyTotal = () => {
-    const { easy, medium, hard } = getEffectiveAdvancedConfig().difficultyDistribution;
-    return Math.round(parameters.questionCount * easy / 100) + 
-           Math.round(parameters.questionCount * medium / 100) + 
-           Math.round(parameters.questionCount * hard / 100);
+    const {
+      easy,
+      medium,
+      hard
+    } = getEffectiveAdvancedConfig().difficultyDistribution;
+    return Math.round(parameters.questionCount * easy / 100) + Math.round(parameters.questionCount * medium / 100) + Math.round(parameters.questionCount * hard / 100);
   };
-
   const getCognitiveTotal = () => {
-    const { remember, understand, apply, analyze } = getEffectiveAdvancedConfig().cognitiveDistribution;
-    return Math.round(parameters.questionCount * remember / 100) + 
-           Math.round(parameters.questionCount * understand / 100) + 
-           Math.round(parameters.questionCount * apply / 100) + 
-           Math.round(parameters.questionCount * analyze / 100);
+    const {
+      remember,
+      understand,
+      apply,
+      analyze
+    } = getEffectiveAdvancedConfig().cognitiveDistribution;
+    return Math.round(parameters.questionCount * remember / 100) + Math.round(parameters.questionCount * understand / 100) + Math.round(parameters.questionCount * apply / 100) + Math.round(parameters.questionCount * analyze / 100);
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* 基本設定 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-xl">
             <Settings2 className="h-5 w-5 text-blue-600" />
             基本設定
           </CardTitle>
@@ -160,19 +161,9 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             <Label htmlFor="chapter" className="text-sm font-medium text-gray-700">
               {parameters.chapterType === 'pages' ? 'PDF 頁數範圍' : '主題或章節名稱'}
             </Label>
-            <Textarea 
-              id="chapter" 
-              className="mt-1 min-h-[80px] w-full"
-              placeholder={parameters.chapterType === 'pages' ? "例如：1-5, 10, 15-20" : "例如：第一章 - 基礎概念"} 
-              value={parameters.chapter} 
-              onChange={e => updateParameter('chapter', e.target.value)} 
-              rows={3}
-            />
+            <Textarea id="chapter" className="mt-1 min-h-[80px] w-full" placeholder={parameters.chapterType === 'pages' ? "例如：1-5, 10, 15-20" : "例如：第一章 - 基礎概念"} value={parameters.chapter} onChange={e => updateParameter('chapter', e.target.value)} rows={3} />
             <p className="text-xs text-gray-500 mt-1">
-              {parameters.chapterType === 'pages' 
-                ? "指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍" 
-                : "描述出題的主題範圍，這將作為 AI 生成題目的重要參考"
-              }
+              {parameters.chapterType === 'pages' ? "指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍" : "描述出題的主題範圍，這將作為 AI 生成題目的重要參考"}
             </p>
           </div>
 
@@ -181,10 +172,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             <Label htmlFor="questionStyle" className="text-sm font-medium text-gray-700">
               題目風格分類
             </Label>
-            <Select 
-              value={parameters.questionStyle} 
-              onValueChange={value => updateParameter('questionStyle', value)}
-            >
+            <Select value={parameters.questionStyle} onValueChange={value => updateParameter('questionStyle', value)}>
               <SelectTrigger className="mt-1 w-full">
                 <SelectValue placeholder="選擇題目風格" />
               </SelectTrigger>
@@ -209,26 +197,15 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               題目數量：{parameters.questionCount} 題
             </Label>
             <div className="mt-2">
-              <Slider 
-                value={[parameters.questionCount]} 
-                onValueChange={value => updateQuestionCount(value[0])} 
-                max={50} 
-                min={5} 
-                step={5} 
-                className="w-full" 
-              />
+              <Slider value={[parameters.questionCount]} onValueChange={value => updateQuestionCount(value[0])} max={50} min={5} step={5} className="w-full" />
             </div>
-            {advancedSettingsEnabled && (
-              <div className="text-xs text-gray-500 mt-2 space-y-1">
+            {advancedSettingsEnabled && <div className="text-xs text-gray-500 mt-2 space-y-1">
                 <div>難度分佈總計：{getDifficultyTotal()} 題</div>
                 <div>認知層次總計：{getCognitiveTotal()} 題</div>
-                {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && (
-                  <div className="text-amber-600 font-medium">
+                {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && <div className="text-amber-600 font-medium">
                     ⚠️ 總題數不一致，請調整進階設定中的百分比
-                  </div>
-                )}
-              </div>
-            )}
+                  </div>}
+              </div>}
           </div>
 
           {/* 題型說明區塊 */}
@@ -258,19 +235,14 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               進階設定
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox
-                id="advanced-settings"
-                checked={advancedSettingsEnabled}
-                onCheckedChange={handleAdvancedSettingsChange}
-              />
+              <Checkbox id="advanced-settings" checked={advancedSettingsEnabled} onCheckedChange={handleAdvancedSettingsChange} />
               <Label htmlFor="advanced-settings" className="text-sm font-medium">
                 啟用進階設定
               </Label>
             </div>
           </CardTitle>
         </CardHeader>
-        {advancedSettingsEnabled && (
-          <CardContent className="space-y-6">
+        {advancedSettingsEnabled && <CardContent className="space-y-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-600 mt-0.5" />
@@ -292,12 +264,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               <CardContent>
                 <div>
                   <Label htmlFor="keywords">出題關鍵字</Label>
-                  <Input 
-                    id="keywords" 
-                    placeholder="例如：機器學習, 深度學習, 神經網路" 
-                    value={parameters.keywords || ''} 
-                    onChange={e => updateParameter('keywords', e.target.value)} 
-                  />
+                  <Input id="keywords" placeholder="例如：機器學習, 深度學習, 神經網路" value={parameters.keywords || ''} onChange={e => updateParameter('keywords', e.target.value)} />
                   <p className="text-xs text-gray-500 mt-1">
                     輸入希望題目聚焦的關鍵字，用逗號分隔多個關鍵字。這將幫助 AI 生成更符合特定主題的題目。
                   </p>
@@ -306,10 +273,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             </Card>
 
             {/* 樣題參考 */}
-            <SampleQuestions 
-              sampleQuestions={parameters.sampleQuestions} 
-              onSampleQuestionsChange={questions => updateParameter('sampleQuestions', questions)} 
-            />
+            <SampleQuestions sampleQuestions={parameters.sampleQuestions} onSampleQuestionsChange={questions => updateParameter('sampleQuestions', questions)} />
 
             {/* 權重分配 - 移除考試範圍權重分配 */}
             <Card>
@@ -326,57 +290,39 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                   <div className="grid grid-cols-3 gap-4 mt-2">
                     <div>
                       <Label className="text-xs text-gray-600">簡單 (%)</Label>
-                      <Slider
-                        value={[parameters.weightingConfig.difficultyDistribution.easy]}
-                        onValueChange={([value]) => updateWeightingConfig({
-                          ...parameters.weightingConfig,
-                          difficultyDistribution: {
-                            ...parameters.weightingConfig.difficultyDistribution,
-                            easy: value
-                          }
-                        })}
-                        max={100}
-                        step={5}
-                        className="mt-1"
-                      />
+                      <Slider value={[parameters.weightingConfig.difficultyDistribution.easy]} onValueChange={([value]) => updateWeightingConfig({
+                    ...parameters.weightingConfig,
+                    difficultyDistribution: {
+                      ...parameters.weightingConfig.difficultyDistribution,
+                      easy: value
+                    }
+                  })} max={100} step={5} className="mt-1" />
                       <div className="text-xs text-center mt-1">
                         {parameters.weightingConfig.difficultyDistribution.easy}%
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs text-gray-600">中等 (%)</Label>
-                      <Slider
-                        value={[parameters.weightingConfig.difficultyDistribution.medium]}
-                        onValueChange={([value]) => updateWeightingConfig({
-                          ...parameters.weightingConfig,
-                          difficultyDistribution: {
-                            ...parameters.weightingConfig.difficultyDistribution,
-                            medium: value
-                          }
-                        })}
-                        max={100}
-                        step={5}
-                        className="mt-1"
-                      />
+                      <Slider value={[parameters.weightingConfig.difficultyDistribution.medium]} onValueChange={([value]) => updateWeightingConfig({
+                    ...parameters.weightingConfig,
+                    difficultyDistribution: {
+                      ...parameters.weightingConfig.difficultyDistribution,
+                      medium: value
+                    }
+                  })} max={100} step={5} className="mt-1" />
                       <div className="text-xs text-center mt-1">
                         {parameters.weightingConfig.difficultyDistribution.medium}%
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs text-gray-600">困難 (%)</Label>
-                      <Slider
-                        value={[parameters.weightingConfig.difficultyDistribution.hard]}
-                        onValueChange={([value]) => updateWeightingConfig({
-                          ...parameters.weightingConfig,
-                          difficultyDistribution: {
-                            ...parameters.weightingConfig.difficultyDistribution,
-                            hard: value
-                          }
-                        })}
-                        max={100}
-                        step={5}
-                        className="mt-1"
-                      />
+                      <Slider value={[parameters.weightingConfig.difficultyDistribution.hard]} onValueChange={([value]) => updateWeightingConfig({
+                    ...parameters.weightingConfig,
+                    difficultyDistribution: {
+                      ...parameters.weightingConfig.difficultyDistribution,
+                      hard: value
+                    }
+                  })} max={100} step={5} className="mt-1" />
                       <div className="text-xs text-center mt-1">
                         {parameters.weightingConfig.difficultyDistribution.hard}%
                       </div>
@@ -390,76 +336,52 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <div>
                       <Label className="text-xs text-gray-600">記憶 (%)</Label>
-                      <Slider
-                        value={[parameters.weightingConfig.cognitiveDistribution.remember]}
-                        onValueChange={([value]) => updateWeightingConfig({
-                          ...parameters.weightingConfig,
-                          cognitiveDistribution: {
-                            ...parameters.weightingConfig.cognitiveDistribution,
-                            remember: value
-                          }
-                        })}
-                        max={100}
-                        step={5}
-                        className="mt-1"
-                      />
+                      <Slider value={[parameters.weightingConfig.cognitiveDistribution.remember]} onValueChange={([value]) => updateWeightingConfig({
+                    ...parameters.weightingConfig,
+                    cognitiveDistribution: {
+                      ...parameters.weightingConfig.cognitiveDistribution,
+                      remember: value
+                    }
+                  })} max={100} step={5} className="mt-1" />
                       <div className="text-xs text-center mt-1">
                         {parameters.weightingConfig.cognitiveDistribution.remember}%
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs text-gray-600">理解 (%)</Label>
-                      <Slider
-                        value={[parameters.weightingConfig.cognitiveDistribution.understand]}
-                        onValueChange={([value]) => updateWeightingConfig({
-                          ...parameters.weightingConfig,
-                          cognitiveDistribution: {
-                            ...parameters.weightingConfig.cognitiveDistribution,
-                            understand: value
-                          }
-                        })}
-                        max={100}
-                        step={5}
-                        className="mt-1"
-                      />
+                      <Slider value={[parameters.weightingConfig.cognitiveDistribution.understand]} onValueChange={([value]) => updateWeightingConfig({
+                    ...parameters.weightingConfig,
+                    cognitiveDistribution: {
+                      ...parameters.weightingConfig.cognitiveDistribution,
+                      understand: value
+                    }
+                  })} max={100} step={5} className="mt-1" />
                       <div className="text-xs text-center mt-1">
                         {parameters.weightingConfig.cognitiveDistribution.understand}%
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs text-gray-600">應用 (%)</Label>
-                      <Slider
-                        value={[parameters.weightingConfig.cognitiveDistribution.apply]}
-                        onValueChange={([value]) => updateWeightingConfig({
-                          ...parameters.weightingConfig,
-                          cognitiveDistribution: {
-                            ...parameters.weightingConfig.cognitiveDistribution,
-                            apply: value
-                          }
-                        })}
-                        max={100}
-                        step={5}
-                        className="mt-1"
-                      />
+                      <Slider value={[parameters.weightingConfig.cognitiveDistribution.apply]} onValueChange={([value]) => updateWeightingConfig({
+                    ...parameters.weightingConfig,
+                    cognitiveDistribution: {
+                      ...parameters.weightingConfig.cognitiveDistribution,
+                      apply: value
+                    }
+                  })} max={100} step={5} className="mt-1" />
                       <div className="text-xs text-center mt-1">
                         {parameters.weightingConfig.cognitiveDistribution.apply}%
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs text-gray-600">分析 (%)</Label>
-                      <Slider
-                        value={[parameters.weightingConfig.cognitiveDistribution.analyze]}
-                        onValueChange={([value]) => updateWeightingConfig({
-                          ...parameters.weightingConfig,
-                          cognitiveDistribution: {
-                            ...parameters.weightingConfig.cognitiveDistribution,
-                            analyze: value
-                          }
-                        })}
-                        max={100}
-                        step={5}
-                        className="mt-1"
-                      />
+                      <Slider value={[parameters.weightingConfig.cognitiveDistribution.analyze]} onValueChange={([value]) => updateWeightingConfig({
+                    ...parameters.weightingConfig,
+                    cognitiveDistribution: {
+                      ...parameters.weightingConfig.cognitiveDistribution,
+                      analyze: value
+                    }
+                  })} max={100} step={5} className="mt-1" />
                       <div className="text-xs text-center mt-1">
                         {parameters.weightingConfig.cognitiveDistribution.analyze}%
                       </div>
@@ -468,9 +390,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                 </div>
               </CardContent>
             </Card>
-          </CardContent>
-        )}
+          </CardContent>}
       </Card>
-    </div>
-  );
+    </div>;
 };
