@@ -44,13 +44,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
             <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-amber-800">
               <p className="font-medium mb-1">生成時間說明</p>
-              <p className="text-xs">題目生成時間依據題數而定：</p>
-              <ul className="mt-1 text-xs space-y-0.5">
-                <li>• 5-10題：約 30-60 秒</li>
-                <li>• 11-20題：約 1-2 分鐘</li>
-                <li>• 21-30題：約 2-3 分鐘</li>
-                <li>• 31題以上：約 3-5 分鐘</li>
-              </ul>
+              <p className="text-xs">AI 正在分析內容並生成題目，請稍候</p>
             </div>
           </div>
         </div>
@@ -62,8 +56,11 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
               <span className="text-sm text-gray-600">{generationStep}</span>
             </div>
-            <Progress value={generationProgress} className="h-2" />
-            <div className="text-xs text-gray-500 text-center">
+            <Progress 
+              value={generationProgress} 
+              className="h-2 transition-all duration-500 ease-in-out" 
+            />
+            <div className="text-xs text-gray-500 text-center animate-pulse">
               {generationProgress}% 完成
             </div>
           </div>
