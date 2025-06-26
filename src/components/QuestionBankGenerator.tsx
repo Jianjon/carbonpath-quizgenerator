@@ -460,6 +460,8 @@ ${q.options ? q.options.join('\n') : ''}
 
   // 修改自動保存功能
   const saveQuestionsAutomatically = async () => {
+    if (generatedQuestions.length === 0) return;
+    
     try {
       const userIP = await getUserIP();
       const userAgent = navigator.userAgent;
@@ -470,7 +472,7 @@ ${q.options ? q.options.join('\n') : ''}
         .insert({
           session_name: `自動保存_${new Date().toISOString().split('T')[0]}_${userIP}`,
           parameters: parameters || {},
-          question_count: questions.length,
+          question_count: generatedQuestions.length,
           user_ip: userIP,
           user_agent: userAgent,
           auto_saved: true
@@ -482,7 +484,7 @@ ${q.options ? q.options.join('\n') : ''}
       setSessionId(session.id);
 
       // 保存題目
-      const questionsToSave = questions.map(q => ({
+      const questionsToSave = generatedQuestions.map(q => ({
         content: q.content,
         options: q.options,
         correct_answer: q.correct_answer,
@@ -510,16 +512,23 @@ ${q.options ? q.options.join('\n') : ''}
       await supabase
         .from('user_sessions')
         .update({ 
-          total_questions: questions.length,
+          total_questions: generatedQuestions.length,
           last_activity: new Date().toISOString()
         })
         .eq('user_ip', userIP);
 
-      console.log(`自動保存成功: ${questions.length} 道題目已保存`);
+      console.log(`自動保存成功: ${generatedQuestions.length} 道題目已保存`);
     } catch (error) {
       console.error('自動保存失敗:', error);
     }
   };
+
+  // 當生成完成時自動保存
+  useEffect(() => {
+    if (generatedQuestions.length > 0) {
+      saveQuestionsAutomatically();
+    }
+  }, [generatedQuestions.length]);
 
   // 處理題目更新（也要自動保存）
   const handleQuestionsChange = (updatedQuestions: QuestionData[]) => {
@@ -582,7 +591,7 @@ ${q.options ? q.options.join('\n') : ''}
     }
   };
 
-  const SidebarContent = () => (
+  const SidebarContentComponent = () => (
     <div className="space-y-4 p-4">
       <Card>
         <CardHeader className="pb-3">
@@ -664,7 +673,7 @@ ${q.options ? q.options.join('\n') : ''}
               <h2 className="font-semibold text-lg">題庫生成設定</h2>
             </SidebarHeader>
             <SidebarContent>
-              <SidebarContent />
+              <SidebarContentComponent />
             </SidebarContent>
           </Sidebar>
           
@@ -703,7 +712,7 @@ ${q.options ? q.options.join('\n') : ''}
       <div className="flex gap-6">
         {/* 左側：教材上傳與參數設定 (1/3) */}
         <div className="w-1/3 space-y-6 overflow-y-auto">
-          <SidebarContent />
+          <SidebarContentComponent />
         </div>
 
         {/* 右側：生成結果與預覽 (2/3) */}
