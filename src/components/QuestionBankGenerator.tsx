@@ -5,7 +5,7 @@ import { QuestionDisplay } from './QuestionDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Brain, FileText, Settings, Zap, Loader2 } from 'lucide-react';
+import { Brain, FileText, Settings, Zap, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -404,7 +404,9 @@ ${q.options ? q.options.join('\n') : ''}
               <PDFUploader 
                 uploadedFile={uploadedFile} 
                 onFileUpload={setUploadedFile} 
-                onUploadComplete={handleUploadComplete} 
+                onUploadComplete={handleUploadComplete}
+                pageRange={parameters.chapter}
+                generatedQuestionsCount={generatedQuestions.length}
               />
             </CardContent>
           </Card>
@@ -417,6 +419,23 @@ ${q.options ? q.options.join('\n') : ''}
 
           <Card>
             <CardContent className="pt-6 space-y-4">
+              {/* 生成時間說明 */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-medium mb-1">生成時間說明</p>
+                    <p>題目生成時間會依據題數而有所不同：</p>
+                    <ul className="mt-1 text-xs space-y-0.5">
+                      <li>• 5-10題：約需 30-60 秒</li>
+                      <li>• 11-20題：約需 1-2 分鐘</li>
+                      <li>• 21-30題：約需 2-3 分鐘</li>
+                      <li>• 31題以上：約需 3-5 分鐘</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
               {/* 進度顯示 */}
               {isGenerating && (
                 <div className="space-y-3">
@@ -453,7 +472,7 @@ ${q.options ? q.options.join('\n') : ''}
                 生成結果與預覽
               </CardTitle>
             </CardHeader>
-            <CardContent className="overflow-y-auto">
+            <CardContent>
               <QuestionDisplay 
                 questions={generatedQuestions} 
                 parameters={parameters}
