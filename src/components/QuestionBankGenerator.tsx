@@ -170,24 +170,30 @@ ${q.options ? q.options.join('\n') : ''}
 `).join('\n')}
 ` : ''}
 
-請務必以標準 JSON 格式回傳，每個題目包含：
-{
-  "id": "題目編號",
-  "content": "題目內容",
-  "options": {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"},
-  "correct_answer": "正確答案代碼(如A)",
-  "explanation": "詳細解析",
-  "question_type": "choice",
-  "difficulty": 0.5,
-  "difficulty_label": "中",
-  "bloom_level": 2,
-  "chapter": "章節名稱",
-  "source_pdf": "${uploadedFile?.name || ''}",
-  "page_range": "${parameters.chapterType === 'pages' ? parameters.chapter : ''}",
-  "tags": ["關鍵字1", "關鍵字2"]
-}
+**重要要求：**
+1. 只能回傳純 JSON 陣列格式，不能包含任何解釋文字、標題或 HTML 內容
+2. 不能使用 markdown 代碼塊標記（如 \`\`\`json）
+3. 每個題目必須包含以下完整結構：
 
-重要：請只回傳純 JSON 陣列，不要包含任何說明文字、HTML 標籤或其他內容。`;
+[
+  {
+    "id": "題目編號",
+    "content": "題目內容",
+    "options": {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"},
+    "correct_answer": "正確答案代碼(如A)",
+    "explanation": "詳細解析",
+    "question_type": "choice",
+    "difficulty": 0.5,
+    "difficulty_label": "中",
+    "bloom_level": 2,
+    "chapter": "章節名稱",
+    "source_pdf": "${uploadedFile?.name || ''}",
+    "page_range": "${parameters.chapterType === 'pages' ? parameters.chapter : ''}",
+    "tags": ["關鍵字1", "關鍵字2"]
+  }
+]
+
+請嚴格按照上述格式回傳，不要添加任何說明文字。`;
 
     try {
       console.log('開始呼叫 AI 生成題目...');
@@ -195,7 +201,7 @@ ${q.options ? q.options.join('\n') : ''}
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請生成 ${parameters.questionCount} 道題目，${uploadedFile?.name ? `參考 PDF 內容：${uploadedFile.name}` : chapterPrompt}`,
+          userPrompt: `請嚴格按照 JSON 陣列格式生成 ${parameters.questionCount} 道題目，不要包含任何解釋文字。${uploadedFile?.name ? `參考 PDF 內容：${uploadedFile.name}` : chapterPrompt}`,
           model: 'gpt-4o'
         }
       });
@@ -212,12 +218,12 @@ ${q.options ? q.options.join('\n') : ''}
 
       let questions;
       try {
-        // 先嘗試解析為 JSON
         questions = JSON.parse(response.data.generatedText);
         console.log('成功解析題目:', questions);
       } catch (parseError) {
         console.error('JSON 解析錯誤:', parseError);
-        throw new Error('無法解析 AI 生成的題目格式');
+        console.error('原始回應:', response.data.generatedText.substring(0, 500));
+        throw new Error(`無法解析 AI 生成的題目格式：${parseError.message}`);
       }
 
       // 確保是陣列格式
@@ -227,14 +233,19 @@ ${q.options ? q.options.join('\n') : ''}
 
       // 驗證題目格式
       const validQuestions = questions.filter(q => 
-        q && q.content && q.correct_answer && q.explanation
+        q && 
+        typeof q === 'object' &&
+        q.content && 
+        q.correct_answer && 
+        q.explanation &&
+        q.question_type
       );
 
       if (validQuestions.length === 0) {
         throw new Error('生成的題目格式不完整，請重新嘗試');
       }
 
-      console.log('成功生成題目數量:', validQuestions.length);
+      console.log('有效題目數量:', validQuestions.length);
       setGeneratedQuestions(validQuestions);
       
       toast({
@@ -246,7 +257,7 @@ ${q.options ? q.options.join('\n') : ''}
       console.error('生成題目時發生錯誤:', error);
       toast({
         title: "生成失敗",
-        description: error.message || '未知錯誤，請重新嘗試',
+        description: error.message || '請檢查網路連接後重新嘗試',
         variant: "destructive",
       });
     }
