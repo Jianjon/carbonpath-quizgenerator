@@ -43,8 +43,8 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-amber-800">
-              <p className="font-medium mb-1">生成時間說明</p>
-              <p className="text-xs">AI 正在分析內容並生成題目，請稍候</p>
+              <p className="font-medium mb-1">生成建議</p>
+              <p className="text-xs">推薦生成 5-10 題以確保最佳品質，超過 15 題建議分批處理</p>
             </div>
           </div>
         </div>

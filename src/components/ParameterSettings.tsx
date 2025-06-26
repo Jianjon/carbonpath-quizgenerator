@@ -90,7 +90,8 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
         return '';
     }
   };
-  return <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       {/* 基本設定 */}
       <Card>
         <CardHeader>
@@ -161,13 +162,34 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             </div>
           </div>
 
-          {/* 題目數量 */}
+          {/* 題目數量 - 更新上限為20 */}
           <div className="w-full">
             <Label className="text-sm font-medium text-gray-700 bg-gray-200">
               題目數量：{parameters.questionCount} 題
             </Label>
             <div className="mt-2">
-              <Slider value={[parameters.questionCount]} onValueChange={value => updateQuestionCount(value[0])} max={50} min={5} step={5} className="w-full" />
+              <Slider 
+                value={[parameters.questionCount]} 
+                onValueChange={value => updateQuestionCount(value[0])} 
+                max={20} 
+                min={5} 
+                step={1} 
+                className="w-full" 
+              />
+            </div>
+            <div className="text-xs text-gray-500 mt-2 space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span>5-10題：推薦範圍，生成穩定且品質最佳</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                <span>11-15題：適中範圍，品質良好</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                <span>16-20題：最大範圍，建議分批生成</span>
+              </div>
             </div>
           </div>
 
@@ -205,7 +227,8 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             </div>
           </CardTitle>
         </CardHeader>
-        {advancedSettingsEnabled && <CardContent className="space-y-6">
+        {advancedSettingsEnabled && (
+          <CardContent className="space-y-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-600 mt-0.5" />
@@ -237,7 +260,9 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
 
             {/* 樣題參考 */}
             <SampleQuestions sampleQuestions={parameters.sampleQuestions} onSampleQuestionsChange={questions => updateParameter('sampleQuestions', questions)} />
-          </CardContent>}
+          </CardContent>
+        )}
       </Card>
-    </div>;
+    </div>
+  );
 };
