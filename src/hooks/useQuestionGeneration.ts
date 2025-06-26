@@ -106,15 +106,14 @@ export const useQuestionGeneration = () => {
       
       const arrayBuffer = await file.arrayBuffer();
       
-      // 加強 PDF 載入設定
+      // 加強 PDF 載入設定 - 移除無效的 disableStreamingImport 屬性
       const loadingTask = pdfjsLib.getDocument({
         data: arrayBuffer,
         useSystemFonts: true,
         disableFontFace: true,
         isEvalSupported: false,
         useWorkerFetch: false,
-        disableAutoFetch: true,
-        disableStreamingImport: true
+        disableAutoFetch: true
       });
 
       const pdf = await loadingTask.promise;
@@ -186,12 +185,12 @@ export const useQuestionGeneration = () => {
       console.error('❌ PDF內容提取失敗:', error);
       
       // 提供更具體的錯誤訊息
-      if (error.message.includes('worker')) {
+      if (error instanceof Error && error.message.includes('worker')) {
         throw new Error('PDF處理器載入失敗，請重新整理頁面後再試');
-      } else if (error.message.includes('Invalid PDF')) {
+      } else if (error instanceof Error && error.message.includes('Invalid PDF')) {
         throw new Error('PDF檔案格式無效，請檢查檔案是否完整');
       } else {
-        throw new Error(`PDF處理失敗：${error.message}`);
+        throw new Error(`PDF處理失敗：${error instanceof Error ? error.message : '未知錯誤'}`);
       }
     }
   };
@@ -330,19 +329,21 @@ ${pdfContent}
         questions = [questions];
       }
 
-      // 嚴格驗證題目品質
-      const validQuestions = questions.filter(q => {
+      // 嚴格驗證題目品質 - 修復類型檢查問題
+      const validQuestions = questions.filter((q: any) => {
         const isValid = q && 
           typeof q === 'object' && 
           q.content && 
+          typeof q.content === 'string' &&
           q.content.length >= 15 && 
           q.correct_answer && 
           q.explanation && 
+          typeof q.explanation === 'string' &&
           q.explanation.length >= 30 && 
           q.options &&
           typeof q.options === 'object' &&
           Object.keys(q.options).length >= 4 &&
-          Object.values(q.options).every(opt => opt && opt.length > 0);
+          Object.values(q.options).every(opt => opt && typeof opt === 'string' && opt.length > 0);
           
         if (!isValid) {
           console.warn('❌ 無效題目:', q);
@@ -385,7 +386,7 @@ ${pdfContent}
       
       toast({
         title: "生成失敗",
-        description: error.message || '請檢查PDF檔案並重新嘗試',
+        description: error instanceof Error ? error.message : '請檢查PDF檔案並重新嘗試',
         variant: "destructive"
       });
       
