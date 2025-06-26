@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -45,6 +44,7 @@ interface Parameters {
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
   keywords?: string;
+  difficultyLevel?: string;
   weightingConfig: WeightingConfig;
 }
 
@@ -71,7 +71,26 @@ export const useQuestionGeneration = () => {
 
   // 取得最終使用的難度設定
   const getEffectiveDifficulty = (parameters: Parameters) => {
-    const hasAdvancedDifficulty = parameters.weightingConfig.difficultyDistribution.easy !== 20 || parameters.weightingConfig.difficultyDistribution.medium !== 60 || parameters.weightingConfig.difficultyDistribution.hard !== 20;
+    // 如果用戶選擇了特定的難度等級，使用對應的分佈
+    if (parameters.difficultyLevel) {
+      switch (parameters.difficultyLevel) {
+        case 'easy':
+          return { easy: 70, medium: 25, hard: 5 };
+        case 'medium':
+          return { easy: 20, medium: 60, hard: 20 };
+        case 'hard':
+          return { easy: 5, medium: 25, hard: 70 };
+        case 'mixed':
+          return { easy: 33, medium: 34, hard: 33 };
+        default:
+          return { easy: 20, medium: 60, hard: 20 };
+      }
+    }
+
+    // 如果有進階難度設定，優先使用
+    const hasAdvancedDifficulty = parameters.weightingConfig.difficultyDistribution.easy !== 20 || 
+                                  parameters.weightingConfig.difficultyDistribution.medium !== 60 || 
+                                  parameters.weightingConfig.difficultyDistribution.hard !== 20;
     if (hasAdvancedDifficulty) {
       return parameters.weightingConfig.difficultyDistribution;
     }
@@ -90,6 +109,42 @@ export const useQuestionGeneration = () => {
         return { easy: 25, medium: 50, hard: 25 };
       default:
         return { easy: 20, medium: 60, hard: 20 };
+    }
+  };
+
+  // 取得難度等級的 prompt 描述
+  const getDifficultyPrompt = (difficultyLevel: string) => {
+    switch (difficultyLevel) {
+      case 'easy':
+        return `【簡單難度】
+        - 題目聚焦基礎概念和定義
+        - 答案較為直接明確，不需要複雜推理
+        - 適合初學者和快速複習使用
+        - 選項設計簡潔明瞭，干擾項容易排除`;
+        
+      case 'medium':
+        return `【中等難度】
+        - 題目涉及概念應用和基本分析
+        - 需要一定的理解和判斷能力
+        - 適合一般學習和考試準備
+        - 選項設計有一定的辨識度要求`;
+        
+      case 'hard':
+        return `【困難難度】
+        - 題目需要深度思考和綜合分析
+        - 涉及複雜概念整合和批判性思維
+        - 適合進階學習和能力提升
+        - 選項設計具有挑戰性，需要仔細分析`;
+        
+      case 'mixed':
+        return `【混合難度】
+        - 結合不同難度等級的題目
+        - 提供循序漸進的學習體驗
+        - 從基礎到進階的完整覆蓋
+        - 適合全面性的學習和評估`;
+        
+      default:
+        return '';
     }
   };
 
@@ -163,6 +218,7 @@ export const useQuestionGeneration = () => {
     
     const keywordsPrompt = parameters.keywords ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}` : '';
     const stylePrompt = getQuestionStylePrompt(parameters.questionStyle);
+    const difficultyPrompt = getDifficultyPrompt(parameters.difficultyLevel || 'medium');
     
     setGenerationProgress(20);
     setGenerationStep('構建提示內容...');
@@ -176,7 +232,7 @@ export const useQuestionGeneration = () => {
 - 樣題參考數量：${parameters.sampleQuestions.length} 個`;
     }
 
-    const systemPrompt = `你是一位專業的教育測驗專家和學習心理學家。請根據指定的題目風格生成高品質的教育測驗題目。
+    const systemPrompt = `你是一位專業的教育測驗專家和學習心理學家。請根據指定的題目風格和難度生成高品質的教育測驗題目。
 
 出題要求：
 ${chapterPrompt}${keywordsPrompt}
@@ -185,6 +241,9 @@ ${chapterPrompt}${keywordsPrompt}
 
 題目風格要求：
 ${stylePrompt}
+
+難度等級要求：
+${difficultyPrompt}
 
 AI 智慧表達要求：
 - 運用教育心理學原理，針對不同學習階段設計適合的認知負荷
@@ -225,7 +284,8 @@ ${q.options ? q.options.join('\n') : ''}
 重要提醒：
 1. 每種題目風格都有其獨特的教育目的和設計邏輯
 2. 要充分展現 AI 在教育測驗設計上的專業能力
-3. 只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
+3. 難度等級要與所選擇的難度設定相符
+4. 只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
 
     try {
       setGenerationProgress(40);

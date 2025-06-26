@@ -53,6 +53,7 @@ interface Parameters {
   sampleQuestions: SampleQuestion[];
   weightingConfig: WeightingConfig;
   keywords?: string;
+  difficultyLevel?: string;
 }
 
 interface ParameterSettingsProps {
@@ -84,6 +85,21 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
 
   const handleAdvancedSettingsChange = (checked: boolean | "indeterminate") => {
     setAdvancedSettingsEnabled(checked === true);
+  };
+
+  const getDifficultyDescription = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy':
+        return '題目較為基礎，適合初學者或快速複習';
+      case 'medium':
+        return '題目難度適中，適合一般學習和考試準備';
+      case 'hard':
+        return '題目較有挑戰性，適合深度學習和能力提升';
+      case 'mixed':
+        return '混合各種難度等級，提供多樣化的學習體驗';
+      default:
+        return '';
+    }
   };
 
   return (
@@ -141,6 +157,33 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               <div><span className="font-medium">錯誤診斷型：</span>包含常見錯誤迷思，強化概念釐清與辨識</div>
               <div><span className="font-medium">策略推演型：</span>多步驟邏輯推理，訓練批判思維與決策分析</div>
               <div><span className="font-medium">混合應用型：</span>綜合運用前四種風格，創造多元化的學習體驗</div>
+            </div>
+          </div>
+
+          {/* 難度等級 */}
+          <div className="w-full">
+            <Label htmlFor="difficultyLevel" className="text-sm font-medium text-gray-700">
+              難度等級
+            </Label>
+            <Select 
+              value={parameters.difficultyLevel || 'medium'} 
+              onValueChange={(value) => updateParameter('difficultyLevel', value)}
+            >
+              <SelectTrigger className="mt-1 w-full">
+                <SelectValue placeholder="選擇難度等級" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="easy">簡單</SelectItem>
+                <SelectItem value="medium">中等</SelectItem>
+                <SelectItem value="hard">困難</SelectItem>
+                <SelectItem value="mixed">混合難度</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="text-xs text-gray-500 mt-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <span>{getDifficultyDescription(parameters.difficultyLevel || 'medium')}</span>
+              </div>
             </div>
           </div>
 
