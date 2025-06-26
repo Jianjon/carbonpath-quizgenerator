@@ -16,9 +16,9 @@ serve(async (req) => {
   }
 
   try {
-    const { systemPrompt, userPrompt, model = 'gpt-4o-mini' } = await req.json();
+    const { systemPrompt, userPrompt, model = 'gpt-4.1-2025-04-14' } = await req.json();
 
-    console.log('🎯 淨零iPAS題目生成請求');
+    console.log('🎯 超級嚴格淨零iPAS題目生成請求');
     console.log('模型:', model);
     console.log('系統提示長度:', systemPrompt?.length || 0);
     console.log('用戶提示預覽:', userPrompt?.substring(0, 100) + '...');
@@ -33,17 +33,18 @@ serve(async (req) => {
     console.log('📊 預計生成題目數量:', questionCount);
     
     // 根據題目數量動態調整max_tokens
-    let maxTokens = 3000;
+    let maxTokens = 4000;
     if (questionCount > 15) {
       maxTokens = 8000;
     } else if (questionCount > 10) {
-      maxTokens = 5000;
+      maxTokens = 6000;
     } else if (questionCount > 5) {
-      maxTokens = 4000;
+      maxTokens = 5000;
     }
     
     console.log('🔧 設定最大tokens:', maxTokens);
 
+    // 使用更強的模型和更低的溫度以確保嚴格遵循指令
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -56,11 +57,11 @@ serve(async (req) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.1,
+        temperature: 0.05, // 降低溫度以確保更嚴格遵循指令
         max_tokens: maxTokens,
-        top_p: 0.9,
-        frequency_penalty: 0,
-        presence_penalty: 0,
+        top_p: 0.8,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.1,
       }),
     });
 
@@ -243,6 +244,16 @@ serve(async (req) => {
     try {
       questions = JSON.parse(cleanedText);
       console.log('✅ JSON 解析成功，題目數量:', questions.length || 1);
+      
+      // 額外檢查：確保題目確實來自指定頁面
+      if (Array.isArray(questions)) {
+        questions.forEach((q, index) => {
+          if (q.content && !q.content.includes('根據第') && !q.content.includes('頁')) {
+            console.warn(`⚠️ 題目 ${index + 1} 可能未嚴格遵循頁數限制:`, q.content.substring(0, 50));
+          }
+        });
+      }
+      
     } catch (parseError) {
       console.error('❌ JSON 解析失敗:', parseError.message);
       console.error('❌ 問題內容前500字:', cleanedText.substring(0, 500));
