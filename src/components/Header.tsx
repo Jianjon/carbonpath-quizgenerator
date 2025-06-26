@@ -13,10 +13,7 @@ export const Header = () => {
               <p className="text-sm text-gray-600">專為講師設計的智能出題工具</p>
             </div>
           </div>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
-            <Settings className="h-4 w-4" />
-            <span className="text-sm font-medium">設定</span>
-          </button>
+          
         </div>
       </div>
     </header>;
