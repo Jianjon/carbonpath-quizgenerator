@@ -34,8 +34,11 @@ serve(async (req) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 4000,
+        temperature: 0.3,
+        max_tokens: 6000,
+        top_p: 0.9,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.1,
       }),
     });
 
@@ -82,30 +85,7 @@ serve(async (req) => {
         }
       }
       
-      // 如果找不到有效 JSON，返回預設題目
-      const fallbackQuestions = [{
-        id: "1",
-        content: "以下何者為正確的學習方法？",
-        options: {
-          "A": "被動接受資訊",
-          "B": "主動思考和實踐",
-          "C": "只靠死背硬記",
-          "D": "完全依賴他人"
-        },
-        correct_answer: "B",
-        explanation: "主動思考和實踐是最有效的學習方法，能幫助深化理解和記憶。",
-        question_type: "choice",
-        difficulty: 0.5,
-        difficulty_label: "中",
-        bloom_level: 2,
-        chapter: "學習方法",
-        tags: ["學習", "方法"]
-      }];
-      
-      console.log('Using fallback questions');
-      return new Response(JSON.stringify({ generatedText: JSON.stringify(fallbackQuestions) }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('無法找到有效的JSON格式內容');
     }
 
     const cleanedText = generatedText.substring(jsonStart, jsonEnd + 1);
@@ -118,44 +98,30 @@ serve(async (req) => {
       console.error('JSON parse error:', parseError);
       console.error('Failed content:', cleanedText);
       
-      // 嘗試修復常見的 JSON 錯誤
+      // 增強的JSON修復邏輯
       let fixedText = cleanedText;
       
       // 修復尾隨逗號
       fixedText = fixedText.replace(/,(\s*[}\]])/g, '$1');
       
-      // 修復未閉合的引號
+      // 修復未閉合的引號和缺少的逗號
       fixedText = fixedText.replace(/([{,]\s*"[^"]*):([^",}\]]*[^",}\]\s])\s*([,}\]])/g, '$1:"$2"$3');
+      
+      // 修復不完整的JSON結構
+      if (!fixedText.endsWith(']') && !fixedText.endsWith('}')) {
+        if (fixedText.includes('[')) {
+          fixedText += ']';
+        } else if (fixedText.includes('{')) {
+          fixedText += '}';
+        }
+      }
       
       try {
         questions = JSON.parse(fixedText);
         console.log('Successfully parsed after fixing');
       } catch (secondError) {
         console.error('Still failed after fixing:', secondError);
-        
-        // 最終回退
-        const fallbackQuestions = [{
-          id: "1",
-          content: "這是一個示例題目，請重新生成。",
-          options: {
-            "A": "選項A",
-            "B": "選項B", 
-            "C": "選項C",
-            "D": "選項D"
-          },
-          correct_answer: "A",
-          explanation: "這是示例解析，請重新生成題目。",
-          question_type: "choice",
-          difficulty: 0.5,
-          difficulty_label: "中",
-          bloom_level: 2,
-          chapter: "示例章節",
-          tags: ["示例"]
-        }];
-        
-        return new Response(JSON.stringify({ generatedText: JSON.stringify(fallbackQuestions) }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        throw new Error('JSON解析失敗，請重新生成題目');
       }
     }
 
@@ -168,13 +134,20 @@ serve(async (req) => {
       }
     }
 
-    // 驗證和清理題目
+    // 驗證和清理題目，確保內容完整性
     const validQuestions = questions.filter(q => {
-      return q && 
+      const isValid = q && 
              typeof q === 'object' && 
              q.content && 
+             q.content.length > 10 &&
              q.correct_answer && 
-             q.explanation;
+             q.explanation &&
+             q.explanation.length > 20;
+      
+      if (!isValid) {
+        console.log('Invalid question filtered out:', q);
+      }
+      return isValid;
     }).map((q, index) => ({
       id: q.id || (index + 1).toString(),
       content: q.content,
@@ -192,7 +165,7 @@ serve(async (req) => {
     }));
 
     if (validQuestions.length === 0) {
-      throw new Error('沒有生成有效的題目，請重新嘗試');
+      throw new Error('沒有生成有效的題目，請檢查PDF內容或重新嘗試');
     }
 
     console.log('Successfully generated questions:', validQuestions.length);

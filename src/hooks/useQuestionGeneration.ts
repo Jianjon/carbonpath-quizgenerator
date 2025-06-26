@@ -69,28 +69,29 @@ export const useQuestionGeneration = () => {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStep, setGenerationStep] = useState('');
 
-  // 模擬進度更新
+  // 模擬進度更新 - 改善進度顯示
   const simulateProgress = () => {
     let progress = 0;
     const steps = [
-      '分析上傳內容...',
-      '理解題目風格...',
-      '生成題目結構...',
-      '優化選項設計...',
-      '完善解析內容...',
-      '最終檢查與格式化...'
+      '分析PDF內容結構...',
+      '提取關鍵段落和原文...',
+      '學習樣題出題風格...',
+      '生成題目框架...',
+      '完善選項和解析...',
+      '檢查內容一致性...',
+      '最終格式化題目...'
     ];
     
     const progressInterval = setInterval(() => {
-      if (progress < 90) {
-        progress += Math.random() * 15 + 5; // 每次增加5-20%
-        if (progress > 90) progress = 90;
+      if (progress < 85) {
+        progress += Math.random() * 12 + 8; // 每次增加8-20%
+        if (progress > 85) progress = 85;
         
-        const stepIndex = Math.floor((progress / 90) * steps.length);
+        const stepIndex = Math.floor((progress / 85) * steps.length);
         setGenerationProgress(Math.round(progress));
         setGenerationStep(steps[stepIndex] || steps[steps.length - 1]);
       }
-    }, 800);
+    }, 1200); // 稍微放慢節奏讓用戶看到進度
     
     return progressInterval;
   };
@@ -254,57 +255,57 @@ export const useQuestionGeneration = () => {
     return stylePrompt;
   };
 
-  // 取得題目風格的完整 prompt 描述 - 優化版本
+  // 優化題目風格提示，強調使用原文
   const getQuestionStylePrompt = (style: string) => {
     switch (style) {
       case 'intuitive':
-        return `【直覺刷題型】- 忠實使用原始教材內容
-        - 直接使用教材中的專業用語和表達方式，不隨意改寫
-        - 題目簡潔明瞭，聚焦單一概念
-        - 答案應該是教材中明確提到的內容`;
-        
-      case 'application':
-        return `【素養應用型】- 結合教材內容的實際應用
-        - 基於教材中的案例或概念設計情境題
-        - 保持教材的專業術語和核心概念不變
-        - 將理論知識轉化為實際問題`;
+        return `【直覺刷題型】- 嚴格使用PDF原文內容
+        - 必須直接引用PDF中的專業術語、定義和表達方式
+        - 題目描述要使用PDF中的完整句子或段落，不可隨意改寫
+        - 選項設計基於PDF中的對比概念和原文描述
+        - 解析要引用PDF中的具體內容和說明`;
         
       case 'diagnostic':
-        return `【錯誤診斷型】- 嚴格按照教材內容設計
-        - 使用教材中的原始概念和用語
-        - 常見錯誤選項基於教材中提到的對比概念
-        - 不自行創造教材外的錯誤概念`;
+        return `【錯誤診斷型】- 完全依據PDF原文設計
+        - 使用PDF中提到的常見錯誤或對比概念作為干擾選項
+        - 題目表述必須保持PDF原有的專業用語和描述方式
+        - 不可創造PDF中未提及的錯誤概念或術語
+        - 解析要詳細引用PDF中的正確說明和錯誤辨析`;
+        
+      case 'application':
+        return `【素養應用型】- 基於PDF案例和概念
+        - 將PDF中的理論概念轉化為實際應用情境
+        - 保持PDF中的核心術語和概念框架不變
+        - 案例設計要符合PDF中提到的應用範疇
+        - 答案解析要回歸PDF中的理論基礎`;
         
       case 'strategic':
-        return `【策略推演型】- 深度運用教材邏輯
-        - 基於教材中的分析框架設計推理題
-        - 保持教材的思維邏輯和分析方法
-        - 多步驟推理過程符合教材的邏輯脈絡`;
+        return `【策略推演型】- 運用PDF邏輯框架
+        - 基於PDF中的分析方法和思維邏輯設計推理題
+        - 多步驟推理過程要符合PDF的邏輯脈絡
+        - 使用PDF中的分析工具和評估標準
+        - 結論要與PDF中的策略建議一致`;
         
       case 'mixed':
-        return `【混合應用型】- 綜合運用教材內容
-        - 25% 直覺型：忠實呈現教材概念
-        - 25% 應用型：教材案例實務化
-        - 25% 診斷型：教材對比概念
-        - 25% 策略型：教材邏輯推演`;
+        return `【混合應用型】- 全面運用PDF內容
+        - 25% 直覺型：完整引用PDF概念和定義
+        - 25% 診斷型：使用PDF對比和錯誤分析
+        - 25% 應用型：轉化PDF理論為實務情境
+        - 25% 策略型：運用PDF邏輯進行推演`;
         
       default:
-        return '題目應忠實使用教材內容，保持原有用詞和概念';
+        return '嚴格使用PDF原文內容，保持專業術語和表達方式的一致性';
     }
   };
 
   const generateQuestionsWithAI = async (parameters: Parameters, uploadedFile: File | null): Promise<QuestionData[]> => {
     const effectiveDifficulty = getEffectiveDifficulty(parameters);
-    const effectiveCognitive = parameters.weightingConfig.cognitiveDistribution;
-    const hasAdvancedSettings = parameters.keywords || parameters.sampleQuestions.length > 0;
-    
-    // 檢查關鍵字相關性
     const shouldUseKeywords = checkKeywordRelevance(parameters.keywords || '', parameters.chapter);
     
     setGenerationProgress(0);
     setGenerationStep('準備生成參數...');
     
-    // 開始進度模擬
+    // 開始改善的進度模擬
     const progressInterval = simulateProgress();
     
     let chapterPrompt = '';
@@ -313,29 +314,27 @@ export const useQuestionGeneration = () => {
     }
     
     const keywordsPrompt = (shouldUseKeywords && parameters.keywords) ? 
-      `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}` : 
-      (parameters.keywords ? '\n（注意：提供的關鍵字與指定範圍關聯性較低，將忽略關鍵字限制）' : '');
+      `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}，但必須使用PDF原文的完整描述` : 
+      (parameters.keywords ? '\n（注意：提供的關鍵字與指定範圍關聯性較低，已忽略關鍵字限制）' : '');
     
     const stylePrompt = getQuestionStylePrompt(parameters.questionStyle);
     const difficultyPrompt = getDifficultyPrompt(parameters.difficultyLevel || 'medium');
     const sampleStylePrompt = analyzeSampleStyle(parameters.sampleQuestions);
-    
-    let advancedSettingsPrompt = '';
-    if (hasAdvancedSettings) {
-      advancedSettingsPrompt = `
 
-🎯 進階設定配置：
-- 關鍵字聚焦：${shouldUseKeywords ? (parameters.keywords || '無') : '已忽略（與範圍不相關）'}
-- 樣題參考數量：${parameters.sampleQuestions.length} 個
-- 樣題風格學習：${parameters.sampleQuestions.length > 0 ? '啟用' : '未啟用'}`;
-    }
-
-    const systemPrompt = `你是專業的教育測驗專家。請根據指定風格生成高品質題目。
+    // 強化系統提示，要求更完整使用PDF內容
+    const systemPrompt = `你是專業的教育測驗專家。請根據PDF原文內容生成高品質題目。
 
 📋 出題要求：
 ${chapterPrompt}${keywordsPrompt}
-- 題目數量：${parameters.questionCount}
+- 題目數量：必須生成完整的 ${parameters.questionCount} 道題目
 - 題型：選擇題（四選一，選項標示為 A、B、C、D）
+
+🎯 **內容完整度要求**：
+- 題目描述必須使用PDF中的完整句子或段落，不可只抓關鍵字
+- 專業術語要與PDF原文完全一致，不可隨意改寫
+- 選項設計要基於PDF中的具體概念和說明
+- 解析要詳細引用PDF原文，提供完整的理論依據
+- 特別是小範圍出題時，要更深度使用該範圍的所有相關內容
 
 🎨 題目風格：
 ${stylePrompt}
@@ -343,15 +342,21 @@ ${stylePrompt}
 📊 難度等級：
 ${difficultyPrompt}
 
+⚠️ **重要生成規則**：
+1. 必須生成指定數量的完整題目（${parameters.questionCount} 道）
+2. 每題都要有完整的題目、四個選項、正確答案和詳細解析
+3. 絕對不可只生成一題就停止
+4. 如果內容不足，要從不同角度重新組織PDF內容來達到題目數量
+
 📝 回傳格式必須是純 JSON 陣列：
 
 [
   {
     "id": "1",
-    "content": "題目內容",
-    "options": {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"},
+    "content": "完整的題目內容（使用PDF原文描述）",
+    "options": {"A": "選項A（基於PDF內容）", "B": "選項B", "C": "選項C", "D": "選項D"},
     "correct_answer": "A",
-    "explanation": "詳細解析",
+    "explanation": "詳細解析（引用PDF原文說明）",
     "question_type": "choice",
     "difficulty": 0.5,
     "difficulty_label": "中",
@@ -361,7 +366,7 @@ ${difficultyPrompt}
     "page_range": "${parameters.chapter}",
     "tags": ["關鍵字1", "關鍵字2"]
   }
-]${advancedSettingsPrompt}
+]
 
 ${parameters.sampleQuestions.length > 0 ? `
 📚 參考樣題風格學習：
@@ -371,12 +376,15 @@ ${q.options ? q.options.join('\n') : ''}
 正確答案：${q.answer}
 `).join('\n')}
 
-⚠️ 重要：學習樣題風格但創造全新內容，嚴格使用指定範圍的教材內容。
+⚠️ 重要：學習樣題的出題方式和風格，但內容必須完全來自指定PDF範圍。
 ` : ''}
+
+**再次強調：必須生成完整的 ${parameters.questionCount} 道題目，每題都要內容完整，不可只生成一題！**
 
 只回傳 JSON 陣列，不要有任何其他文字！`;
 
     try {
+      console.log('🎯 目標題目數量:', parameters.questionCount);
       console.log('🎯 樣題參考數量:', parameters.sampleQuestions.length);
       console.log('🔑 關鍵字聚焦:', shouldUseKeywords ? parameters.keywords : '已忽略');
       console.log('📝 開始呼叫 AI 生成題目...');
@@ -384,7 +392,7 @@ ${q.options ? q.options.join('\n') : ''}
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請嚴格按照上述 JSON 格式生成 ${parameters.questionCount} 道選擇題。${parameters.sampleQuestions.length > 0 ? '請學習參考樣題的風格但創造全新內容。' : ''}只回傳 JSON 陣列，不要有任何其他內容。`,
+          userPrompt: `請嚴格按照要求生成 ${parameters.questionCount} 道完整的選擇題。每題都要有詳細的題目描述、四個選項、正確答案和完整解析。絕對不可只生成一題！${parameters.sampleQuestions.length > 0 ? '請學習參考樣題的風格但內容必須來自PDF。' : ''}只回傳完整的JSON陣列。`,
           model: 'gpt-4o-mini'
         }
       });
@@ -403,8 +411,8 @@ ${q.options ? q.options.join('\n') : ''}
         throw new Error('AI 回應格式錯誤：缺少生成內容');
       }
 
-      setGenerationProgress(95);
-      setGenerationStep('解析生成的題目...');
+      setGenerationProgress(90);
+      setGenerationStep('驗證題目完整性...');
 
       let questions;
       try {
@@ -419,26 +427,43 @@ ${q.options ? q.options.join('\n') : ''}
         questions = [questions];
       }
 
+      // 嚴格驗證題目品質
       const validQuestions = questions.filter(q => 
         q && 
         typeof q === 'object' && 
         q.content && 
+        q.content.length > 15 && // 確保題目有足夠長度
         q.correct_answer && 
         q.explanation && 
-        q.question_type
+        q.explanation.length > 30 && // 確保解析有足夠詳細度
+        q.question_type &&
+        q.options &&
+        Object.keys(q.options).length >= 4 // 確保有完整四個選項
       );
+
+      console.log('✅ 有效題目數量:', validQuestions.length);
+      console.log('🎯 目標題目數量:', parameters.questionCount);
 
       if (validQuestions.length === 0) {
         throw new Error('生成的題目格式不完整，請重新嘗試');
       }
 
+      // 如果生成的題目數量明顯不足，給出警告
+      if (validQuestions.length < parameters.questionCount * 0.8) {
+        console.warn('⚠️ 生成題目數量不足，可能需要調整範圍或重新生成');
+      }
+
       setGenerationProgress(100);
       setGenerationStep('生成完成！');
-      console.log('✅ 有效題目數量:', validQuestions.length);
+      
+      const successMessage = validQuestions.length >= parameters.questionCount ? 
+        `成功生成 ${validQuestions.length} 道完整題目` :
+        `生成 ${validQuestions.length} 道題目（目標：${parameters.questionCount}道，建議重新生成以達到目標數量）`;
       
       toast({
-        title: "生成成功",
-        description: `成功生成 ${validQuestions.length} 道選擇題${parameters.sampleQuestions.length > 0 ? '（已學習樣題風格）' : ''}`
+        title: "生成完成",
+        description: successMessage + (parameters.sampleQuestions.length > 0 ? '（已學習樣題風格）' : ''),
+        variant: validQuestions.length >= parameters.questionCount ? "default" : "destructive"
       });
 
       setTimeout(() => {
