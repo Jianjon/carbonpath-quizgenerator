@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { useUserSession } from '@/hooks/useUserSession';
@@ -110,7 +109,7 @@ export const QuestionBankGenerator = () => {
     generationStep, 
     generateQuestionsWithAI 
   } = useQuestionGeneration();
-  const { updateQuestionsInDatabase } = useAutoSave(
+  const { updateQuestionsInDatabase, saveQuestionsToDatabase } = useAutoSave(
     generatedQuestions, 
     parameters, 
     sessionId, 
@@ -151,22 +150,60 @@ export const QuestionBankGenerator = () => {
     
     setIsGenerating(true);
     try {
+      console.log('🚀 開始生成題目...');
       const questions = await generateQuestionsWithAI(parameters, uploadedFile);
+      
+      console.log('✅ 題目生成成功，準備保存到資料庫');
+      console.log('生成的題目數量:', questions.length);
+      console.log('題目內容預覽:', questions.slice(0, 2));
+      
       setGeneratedQuestions(questions);
+      
+      // 顯示成功訊息，確認題目已保存
+      toast({
+        title: "題目生成完成",
+        description: `成功生成 ${questions.length} 道題目並保存到資料庫`,
+        variant: "default"
+      });
+      
     } catch (error) {
-      // Error handling is done in the hook
+      console.error('❌ 生成題目失敗:', error);
+      toast({
+        title: "生成失敗",
+        description: error.message || '請重新嘗試',
+        variant: "destructive"
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // 處理題目更新（也要自動保存）
-  const handleQuestionsChange = (updatedQuestions: QuestionData[]) => {
+  // 處理題目更新時，確保同步更新到資料庫
+  const handleQuestionsChange = async (updatedQuestions: QuestionData[]) => {
+    console.log('📝 題目被修改，準備更新到資料庫');
+    console.log('修改後的題目數量:', updatedQuestions.length);
+    
     setGeneratedQuestions(updatedQuestions);
     
-    // 當題目被修改時，也要自動更新到資料庫
+    // 當題目被修改時，立即更新到資料庫
     if (sessionId && updatedQuestions.length > 0) {
-      updateQuestionsInDatabase(updatedQuestions);
+      try {
+        await updateQuestionsInDatabase(updatedQuestions);
+        console.log('✅ 題目修改已同步到資料庫');
+        
+        toast({
+          title: "題目已更新",
+          description: "修改已自動保存到資料庫",
+          variant: "default"
+        });
+      } catch (error) {
+        console.error('❌ 同步題目修改失敗:', error);
+        toast({
+          title: "同步失敗",
+          description: "題目修改未能保存到資料庫",
+          variant: "destructive"
+        });
+      }
     }
   };
 
