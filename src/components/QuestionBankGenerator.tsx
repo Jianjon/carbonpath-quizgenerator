@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Brain, FileText, Settings, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface SampleQuestion {
   id: string;
@@ -144,25 +144,28 @@ export const QuestionBankGenerator = () => {
       ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}`
       : '';
 
-    const systemPrompt = `你是一位專業的教育測驗專家，需要根據提供的教材內容生成高品質的題目。
+    const systemPrompt = `你是一位專業的教育測驗專家。
 
+**重要：你只能回傳純 JSON 陣列格式，絕對不能包含任何其他內容**
+
+要求：
 ${chapterPrompt}${keywordsPrompt}
 - 題目數量：${parameters.questionCount}
 - 題型：${parameters.questionTypes.join(', ')}
 
 難度分佈：
-- 簡單題：${effectiveDifficulty.easy}%
-- 中等題：${effectiveDifficulty.medium}%
-- 困難題：${effectiveDifficulty.hard}%
+- 簡單：${effectiveDifficulty.easy}%
+- 中等：${effectiveDifficulty.medium}%
+- 困難：${effectiveDifficulty.hard}%
 
-認知層次分佈（布魯姆分類法）：
+認知層次分佈：
 - 記憶：${parameters.weightingConfig.cognitiveDistribution.remember}%
 - 理解：${parameters.weightingConfig.cognitiveDistribution.understand}%
 - 應用：${parameters.weightingConfig.cognitiveDistribution.apply}%
 - 分析：${parameters.weightingConfig.cognitiveDistribution.analyze}%
 
 ${parameters.sampleQuestions.length > 0 ? `
-參考樣題格式：
+參考樣題：
 ${parameters.sampleQuestions.map((q, i) => `
 ${i + 1}. ${q.question}
 ${q.options ? q.options.join('\n') : ''}
@@ -170,17 +173,14 @@ ${q.options ? q.options.join('\n') : ''}
 `).join('\n')}
 ` : ''}
 
-**重要要求：**
-1. 只能回傳純 JSON 陣列格式，不能包含任何解釋文字、標題或 HTML 內容
-2. 不能使用 markdown 代碼塊標記（如 \`\`\`json）
-3. 每個題目必須包含以下完整結構：
+**回傳格式（只能是這個格式，不能有任何其他文字）：**
 
 [
   {
-    "id": "題目編號",
+    "id": "1",
     "content": "題目內容",
     "options": {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"},
-    "correct_answer": "正確答案代碼(如A)",
+    "correct_answer": "A",
     "explanation": "詳細解析",
     "question_type": "choice",
     "difficulty": 0.5,
@@ -193,7 +193,7 @@ ${q.options ? q.options.join('\n') : ''}
   }
 ]
 
-請嚴格按照上述格式回傳，不要添加任何說明文字。`;
+記住：只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
 
     try {
       console.log('開始呼叫 AI 生成題目...');
@@ -201,7 +201,7 @@ ${q.options ? q.options.join('\n') : ''}
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請嚴格按照 JSON 陣列格式生成 ${parameters.questionCount} 道題目，不要包含任何解釋文字。${uploadedFile?.name ? `參考 PDF 內容：${uploadedFile.name}` : chapterPrompt}`,
+          userPrompt: `請嚴格按照上述 JSON 格式生成 ${parameters.questionCount} 道題目。只回傳 JSON 陣列，不要有任何其他內容。${uploadedFile?.name ? `\n參考 PDF：${uploadedFile.name}` : chapterPrompt}`,
           model: 'gpt-4o'
         }
       });
@@ -209,6 +209,7 @@ ${q.options ? q.options.join('\n') : ''}
       console.log('AI 回應:', response);
 
       if (response.error) {
+        console.error('Supabase function error:', response.error);
         throw new Error(response.error.message || '呼叫 AI 服務失敗');
       }
 
@@ -221,9 +222,9 @@ ${q.options ? q.options.join('\n') : ''}
         questions = JSON.parse(response.data.generatedText);
         console.log('成功解析題目:', questions);
       } catch (parseError) {
-        console.error('JSON 解析錯誤:', parseError);
-        console.error('原始回應:', response.data.generatedText.substring(0, 500));
-        throw new Error(`無法解析 AI 生成的題目格式：${parseError.message}`);
+        console.error('前端 JSON 解析錯誤:', parseError);
+        console.error('收到的回應:', response.data.generatedText?.substring(0, 500));
+        throw new Error(`無法解析 AI 生成的題目：${parseError.message}`);
       }
 
       // 確保是陣列格式
