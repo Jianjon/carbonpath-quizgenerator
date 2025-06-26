@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -5,11 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Settings2, Info } from 'lucide-react';
+import { Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { WeightingSystem } from './WeightingSystem';
-import { PDFOutlineSelector } from './PDFOutlineSelector';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface SampleQuestion {
@@ -19,11 +18,13 @@ interface SampleQuestion {
   options?: string[];
   answer: string;
 }
+
 interface ChapterWeight {
   name: string;
   weight: number;
   questions: number;
 }
+
 interface WeightingConfig {
   chapterWeights: ChapterWeight[];
   difficultyDistribution: {
@@ -44,22 +45,26 @@ interface WeightingConfig {
     essay: number;
   };
 }
+
 type ChapterType = 'topic' | 'pages';
+
 interface Parameters {
   chapter: string;
   chapterType: ChapterType;
-  difficulty: string;
+  questionStyle: string; // 改為題目風格
   questionCount: number;
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
   weightingConfig: WeightingConfig;
-  keywords?: string; // 新增關鍵字欄位
+  keywords?: string;
 }
+
 interface ParameterSettingsProps {
   parameters: Parameters;
   onParametersChange: (parameters: Parameters) => void;
   uploadedFile?: File | null;
 }
+
 export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   parameters,
   onParametersChange,
@@ -75,18 +80,9 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   };
 
   const updateQuestionCount = (newCount: number) => {
-    // 更新題目數量時，同時更新權重配置中的相關數量
-    const updatedConfig = {
-      ...parameters.weightingConfig,
-      chapterWeights: parameters.weightingConfig.chapterWeights.map(ch => ({
-        ...ch,
-        questions: Math.round(ch.weight / 100 * newCount)
-      }))
-    };
     onParametersChange({
       ...parameters,
-      questionCount: newCount,
-      weightingConfig: updatedConfig
+      questionCount: newCount
     });
   };
 
@@ -94,19 +90,10 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
     updateParameter('weightingConfig', config);
   };
 
-  // 處理 PDF 主題選擇
-  const handleTopicsChange = (selectedTopics: string[]) => {
-    // 將選中的主題轉換為章節字符串
-    const topicsString = selectedTopics.join(', ');
-    updateParameter('chapter', topicsString);
-  };
-
-  // 處理進階設定勾選狀態
   const handleAdvancedSettingsChange = (checked: boolean | "indeterminate") => {
     setAdvancedSettingsEnabled(checked === true);
   };
 
-  // 獲取有效的進階設定配置
   const getEffectiveAdvancedConfig = () => {
     if (!advancedSettingsEnabled) {
       return {
@@ -126,46 +113,21 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
     };
   };
 
-  // 檢查是否啟用進階難度設定
-  const isAdvancedDifficultyEnabled = () => {
-    return advancedSettingsEnabled;
-  };
-
-  // 計算難度分佈的總題數
   const getDifficultyTotal = () => {
-    const {
-      easy,
-      medium,
-      hard
-    } = getEffectiveAdvancedConfig().difficultyDistribution;
-    return Math.round(parameters.questionCount * easy / 100) + Math.round(parameters.questionCount * medium / 100) + Math.round(parameters.questionCount * hard / 100);
+    const { easy, medium, hard } = getEffectiveAdvancedConfig().difficultyDistribution;
+    return Math.round(parameters.questionCount * easy / 100) + 
+           Math.round(parameters.questionCount * medium / 100) + 
+           Math.round(parameters.questionCount * hard / 100);
   };
 
-  // 計算認知層次的總題數
   const getCognitiveTotal = () => {
-    const {
-      remember,
-      understand,
-      apply,
-      analyze
-    } = getEffectiveAdvancedConfig().cognitiveDistribution;
-    return Math.round(parameters.questionCount * remember / 100) + Math.round(parameters.questionCount * understand / 100) + Math.round(parameters.questionCount * apply / 100) + Math.round(parameters.questionCount * analyze / 100);
+    const { remember, understand, apply, analyze } = getEffectiveAdvancedConfig().cognitiveDistribution;
+    return Math.round(parameters.questionCount * remember / 100) + 
+           Math.round(parameters.questionCount * understand / 100) + 
+           Math.round(parameters.questionCount * apply / 100) + 
+           Math.round(parameters.questionCount * analyze / 100);
   };
 
-  // 初始化章節權重（如果章節名稱改變）
-  React.useEffect(() => {
-    if (parameters.chapter && !parameters.weightingConfig.chapterWeights.find(ch => ch.name === parameters.chapter)) {
-      const newConfig = {
-        ...parameters.weightingConfig,
-        chapterWeights: [{
-          name: parameters.chapter,
-          weight: 100,
-          questions: parameters.questionCount
-        }]
-      };
-      updateParameter('weightingConfig', newConfig);
-    }
-  }, [parameters.chapter]);
   return (
     <div className="space-y-6">
       {/* 基本設定 */}
@@ -214,42 +176,31 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             </p>
           </div>
 
-          {/* 基本難度等級 */}
+          {/* 題目風格 */}
           <div className="w-full">
-            <Label htmlFor="difficulty" className="text-sm font-medium text-gray-700">
-              基本難度等級
-              {isAdvancedDifficultyEnabled() && (
-                <span className="text-xs text-amber-600 ml-2 flex items-center gap-1">
-                  <Info className="h-3 w-3" />
-                  (進階設定已啟用)
-                </span>
-              )}
+            <Label htmlFor="questionStyle" className="text-sm font-medium text-gray-700">
+              題目風格分類
             </Label>
             <Select 
-              value={parameters.difficulty} 
-              onValueChange={value => updateParameter('difficulty', value)} 
-              disabled={isAdvancedDifficultyEnabled()}
+              value={parameters.questionStyle} 
+              onValueChange={value => updateParameter('questionStyle', value)}
             >
               <SelectTrigger className="mt-1 w-full">
-                <SelectValue placeholder="選擇難度" />
+                <SelectValue placeholder="選擇題目風格" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="easy">簡單</SelectItem>
-                <SelectItem value="medium">中等</SelectItem>
-                <SelectItem value="hard">困難</SelectItem>
-                <SelectItem value="expert">專家</SelectItem>
+                <SelectItem value="intuitive">直覺刷題型</SelectItem>
+                <SelectItem value="application">素養應用型</SelectItem>
+                <SelectItem value="diagnostic">錯誤診斷型</SelectItem>
+                <SelectItem value="strategic">策略推演型</SelectItem>
               </SelectContent>
             </Select>
-            {isAdvancedDifficultyEnabled() && (
-              <p className="text-xs text-amber-600 mt-1">
-                進階設定中的難度分佈將覆蓋此基本設定
-              </p>
-            )}
-            {!isAdvancedDifficultyEnabled() && (
-              <p className="text-xs text-gray-500 mt-1">
-                若未使用進階設定，將套用此基本難度等級
-              </p>
-            )}
+            <div className="text-xs text-gray-500 mt-2 space-y-1">
+              <div><span className="font-medium">直覺刷題型：</span>測記憶、初學入門、快速自我檢測</div>
+              <div><span className="font-medium">素養應用型：</span>考概念理解與實務應用能力</div>
+              <div><span className="font-medium">錯誤診斷型：</span>強化辨識力與概念釐清</div>
+              <div><span className="font-medium">策略推演型：</span>進階訓練、情境推理、決策分析</div>
+            </div>
           </div>
 
           {/* 題目數量 */}
@@ -297,17 +248,6 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </div>
         </CardContent>
       </Card>
-
-      {/* PDF 大綱選擇 */}
-      {uploadedFile && (
-        <PDFOutlineSelector 
-          pdfFile={uploadedFile} 
-          selectedTopics={parameters.chapter ? parameters.chapter.split(', ') : []} 
-          onTopicsChange={handleTopicsChange} 
-          chapterType={parameters.chapterType} 
-          chapterInput={parameters.chapter} 
-        />
-      )}
 
       {/* 進階設定 - 勾選啟用 */}
       <Card>
@@ -371,12 +311,163 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               onSampleQuestionsChange={questions => updateParameter('sampleQuestions', questions)} 
             />
 
-            {/* 權重分配 */}
-            <WeightingSystem 
-              config={parameters.weightingConfig} 
-              onConfigChange={updateWeightingConfig} 
-              totalQuestions={parameters.questionCount} 
-            />
+            {/* 權重分配 - 移除考試範圍權重分配 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Settings2 className="h-5 w-5 text-purple-600" />
+                  題目分佈權重
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* 難度分佈 */}
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">難度分佈</Label>
+                  <div className="grid grid-cols-3 gap-4 mt-2">
+                    <div>
+                      <Label className="text-xs text-gray-600">簡單 (%)</Label>
+                      <Slider
+                        value={[parameters.weightingConfig.difficultyDistribution.easy]}
+                        onValueChange={([value]) => updateWeightingConfig({
+                          ...parameters.weightingConfig,
+                          difficultyDistribution: {
+                            ...parameters.weightingConfig.difficultyDistribution,
+                            easy: value
+                          }
+                        })}
+                        max={100}
+                        step={5}
+                        className="mt-1"
+                      />
+                      <div className="text-xs text-center mt-1">
+                        {parameters.weightingConfig.difficultyDistribution.easy}%
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-600">中等 (%)</Label>
+                      <Slider
+                        value={[parameters.weightingConfig.difficultyDistribution.medium]}
+                        onValueChange={([value]) => updateWeightingConfig({
+                          ...parameters.weightingConfig,
+                          difficultyDistribution: {
+                            ...parameters.weightingConfig.difficultyDistribution,
+                            medium: value
+                          }
+                        })}
+                        max={100}
+                        step={5}
+                        className="mt-1"
+                      />
+                      <div className="text-xs text-center mt-1">
+                        {parameters.weightingConfig.difficultyDistribution.medium}%
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-600">困難 (%)</Label>
+                      <Slider
+                        value={[parameters.weightingConfig.difficultyDistribution.hard]}
+                        onValueChange={([value]) => updateWeightingConfig({
+                          ...parameters.weightingConfig,
+                          difficultyDistribution: {
+                            ...parameters.weightingConfig.difficultyDistribution,
+                            hard: value
+                          }
+                        })}
+                        max={100}
+                        step={5}
+                        className="mt-1"
+                      />
+                      <div className="text-xs text-center mt-1">
+                        {parameters.weightingConfig.difficultyDistribution.hard}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 認知層次分佈 */}
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">認知層次分佈</Label>
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <Label className="text-xs text-gray-600">記憶 (%)</Label>
+                      <Slider
+                        value={[parameters.weightingConfig.cognitiveDistribution.remember]}
+                        onValueChange={([value]) => updateWeightingConfig({
+                          ...parameters.weightingConfig,
+                          cognitiveDistribution: {
+                            ...parameters.weightingConfig.cognitiveDistribution,
+                            remember: value
+                          }
+                        })}
+                        max={100}
+                        step={5}
+                        className="mt-1"
+                      />
+                      <div className="text-xs text-center mt-1">
+                        {parameters.weightingConfig.cognitiveDistribution.remember}%
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-600">理解 (%)</Label>
+                      <Slider
+                        value={[parameters.weightingConfig.cognitiveDistribution.understand]}
+                        onValueChange={([value]) => updateWeightingConfig({
+                          ...parameters.weightingConfig,
+                          cognitiveDistribution: {
+                            ...parameters.weightingConfig.cognitiveDistribution,
+                            understand: value
+                          }
+                        })}
+                        max={100}
+                        step={5}
+                        className="mt-1"
+                      />
+                      <div className="text-xs text-center mt-1">
+                        {parameters.weightingConfig.cognitiveDistribution.understand}%
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-600">應用 (%)</Label>
+                      <Slider
+                        value={[parameters.weightingConfig.cognitiveDistribution.apply]}
+                        onValueChange={([value]) => updateWeightingConfig({
+                          ...parameters.weightingConfig,
+                          cognitiveDistribution: {
+                            ...parameters.weightingConfig.cognitiveDistribution,
+                            apply: value
+                          }
+                        })}
+                        max={100}
+                        step={5}
+                        className="mt-1"
+                      />
+                      <div className="text-xs text-center mt-1">
+                        {parameters.weightingConfig.cognitiveDistribution.apply}%
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-600">分析 (%)</Label>
+                      <Slider
+                        value={[parameters.weightingConfig.cognitiveDistribution.analyze]}
+                        onValueChange={([value]) => updateWeightingConfig({
+                          ...parameters.weightingConfig,
+                          cognitiveDistribution: {
+                            ...parameters.weightingConfig.cognitiveDistribution,
+                            analyze: value
+                          }
+                        })}
+                        max={100}
+                        step={5}
+                        className="mt-1"
+                      />
+                      <div className="text-xs text-center mt-1">
+                        {parameters.weightingConfig.cognitiveDistribution.analyze}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </CardContent>
         )}
       </Card>

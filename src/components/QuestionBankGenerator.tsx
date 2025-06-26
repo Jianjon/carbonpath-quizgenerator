@@ -65,7 +65,7 @@ type ChapterType = 'topic' | 'pages';
 interface Parameters {
   chapter: string;
   chapterType: ChapterType;
-  difficulty: string;
+  questionStyle: string; // 改為題目風格
   questionCount: number;
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
@@ -75,13 +75,12 @@ interface Parameters {
 
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [showOutlineSelector, setShowOutlineSelector] = useState(false);
   const [parameters, setParameters] = useState<Parameters>({
     chapter: '',
     chapterType: 'topic',
-    difficulty: 'medium',
+    questionStyle: 'intuitive', // 改為題目風格，預設為直覺刷題型
     questionCount: 10,
-    questionTypes: ['multiple-choice'], // 固定為選擇題
+    questionTypes: ['multiple-choice'],
     sampleQuestions: [] as SampleQuestion[],
     keywords: '',
     weightingConfig: {
@@ -112,7 +111,6 @@ export const QuestionBankGenerator = () => {
 
   // 取得最終使用的難度設定
   const getEffectiveDifficulty = () => {
-    // 檢查是否有進階設定啟用
     const hasAdvancedDifficulty = parameters.weightingConfig.difficultyDistribution.easy !== 20 ||
       parameters.weightingConfig.difficultyDistribution.medium !== 60 ||
       parameters.weightingConfig.difficultyDistribution.hard !== 20;
@@ -121,28 +119,43 @@ export const QuestionBankGenerator = () => {
       return parameters.weightingConfig.difficultyDistribution;
     }
     
-    switch (parameters.difficulty) {
-      case 'easy':
-        return { easy: 70, medium: 25, hard: 5 };
-      case 'medium':
+    // 根據題目風格設定預設難度分佈
+    switch (parameters.questionStyle) {
+      case 'intuitive':
+        return { easy: 60, medium: 30, hard: 10 };
+      case 'application':
         return { easy: 20, medium: 60, hard: 20 };
-      case 'hard':
-        return { easy: 10, medium: 30, hard: 60 };
-      case 'expert':
-        return { easy: 5, medium: 15, hard: 80 };
+      case 'diagnostic':
+        return { easy: 10, medium: 50, hard: 40 };
+      case 'strategic':
+        return { easy: 5, medium: 25, hard: 70 };
       default:
         return { easy: 20, medium: 60, hard: 20 };
     }
   };
 
+  // 取得題目風格的 prompt 描述
+  const getQuestionStylePrompt = (style: string) => {
+    switch (style) {
+      case 'intuitive':
+        return '題目應簡單清楚，聚焦單一知識點，讓學生用直覺作答，不須綜合思考';
+      case 'application':
+        return '請根據真實或模擬情境出題，考察學生應用概念解決實際問題的能力';
+      case 'diagnostic':
+        return '請加入常見錯誤概念為選項之一，考察學生是否能正確排除迷思答案';
+      case 'strategic':
+        return '設計題目需要學生比較多個方案並做出推論或策略選擇，具備邏輯層次';
+      default:
+        return '題目應簡單清楚，聚焦單一知識點，讓學生用直覺作答，不須綜合思考';
+    }
+  };
+
   // 處理上傳完成事件
   const handleUploadComplete = () => {
-    // 如果沒有指定章節範圍，顯示大綱選擇器
     if (!parameters.chapter) {
-      setShowOutlineSelector(true);
       toast({
-        title: "選擇出題範圍",
-        description: "請從 PDF 大綱中選擇要出題的主題範圍",
+        title: "請設定出題範圍",
+        description: "請在基本設定中輸入出題的主題或頁數範圍",
       });
     }
   };
@@ -152,7 +165,6 @@ export const QuestionBankGenerator = () => {
     const effectiveCognitive = parameters.weightingConfig.cognitiveDistribution;
     const hasAdvancedSettings = parameters.keywords || parameters.sampleQuestions.length > 0;
     
-    // 重置進度
     setGenerationProgress(0);
     setGenerationStep('準備生成參數...');
 
@@ -167,10 +179,11 @@ export const QuestionBankGenerator = () => {
       ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}`
       : '';
 
+    const stylePrompt = getQuestionStylePrompt(parameters.questionStyle);
+
     setGenerationProgress(20);
     setGenerationStep('構建提示內容...');
 
-    // 構建進階設定提示
     let advancedSettingsPrompt = '';
     if (hasAdvancedSettings) {
       advancedSettingsPrompt = `
@@ -180,7 +193,6 @@ export const QuestionBankGenerator = () => {
 - 樣題參考數量：${parameters.sampleQuestions.length} 個`;
     }
 
-    // 固定為選擇題的系統提示
     const systemPrompt = `你是一位專業的教育測驗專家。
 
 **重要：你只能回傳純 JSON 陣列格式，絕對不能包含任何其他內容**
@@ -189,6 +201,7 @@ export const QuestionBankGenerator = () => {
 ${chapterPrompt}${keywordsPrompt}
 - 題目數量：${parameters.questionCount}
 - 題型：選擇題（四選一）
+- 題目風格：${stylePrompt}
 
 難度分佈：
 - 簡單：${effectiveDifficulty.easy}%
@@ -273,7 +286,6 @@ ${q.options ? q.options.join('\n') : ''}
         throw new Error(`無法解析 AI 生成的題目：${parseError.message}`);
       }
 
-      // 確保是陣列格式
       if (!Array.isArray(questions)) {
         questions = [questions];
       }
@@ -281,7 +293,6 @@ ${q.options ? q.options.join('\n') : ''}
       setGenerationProgress(95);
       setGenerationStep('驗證題目格式...');
 
-      // 驗證題目格式
       const validQuestions = questions.filter(q => 
         q && 
         typeof q === 'object' &&
@@ -306,7 +317,6 @@ ${q.options ? q.options.join('\n') : ''}
         description: `成功生成 ${validQuestions.length} 道選擇題`,
       });
 
-      // 清除進度顯示
       setTimeout(() => {
         setGenerationProgress(0);
         setGenerationStep('');
