@@ -12,7 +12,7 @@ export const Footer = () => {
             關於本站與聯絡方式
           </h2>
           <p className="text-center text-gray-600 mb-8">
-            本站旨在提供一個學習永續發展的模擬平台，所有數據與分析僅供教學參考。
+            本站旨在為講師提供智能題庫生成服務，讓出題流程變得更簡單高效。
           </p>
           
           <div className="grid md:grid-cols-2 gap-8">
@@ -26,7 +26,7 @@ export const Footer = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-700 leading-relaxed">
-                  建立這個網站的初衷，是希望提供一個簡單易用的平台，幫助企業與個人更好地理解與實踐永續發展及減碳策略。透過互動式工具與模擬，讓複雜的永續概念變得平易近人。
+                  建立這個 AI 題庫生成平台的初衷，是希望讓講師的出題流程變得更容易。透過上傳 PDF 教材、設定參數，即可快速生成專業題庫，大幅提升教學準備效率。
                 </p>
                 <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                   <p className="text-sm text-blue-800">
@@ -46,7 +46,7 @@ export const Footer = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-700 leading-relaxed">
-                  請注意：本網站所有數據與分析結果均為模擬情境，僅供學習與理解原理之用，不構成任何實際的投資或決策建議。
+                  請注意：本網站所有題目均由 AI 生成，題目內容的正確性與適用性需要使用者自行確認與驗證，請依據實際教學需求進行調整。
                 </p>
               </CardContent>
             </Card>
@@ -59,7 +59,7 @@ export const Footer = () => {
               <div className="text-center">
                 <div className="bg-white p-3 rounded-lg shadow-sm inline-block mb-2">
                   <img 
-                    src="/lovable-uploads/18d2edfe-19ec-4ac0-95e1-d7af98bf3416.png" 
+                    src="/lovable-uploads/3e6df4c9-ac5c-43e2-adea-73676cb85bd6.png" 
                     alt="聯絡方式 QR Code" 
                     className="w-24 h-24 object-contain"
                   />
