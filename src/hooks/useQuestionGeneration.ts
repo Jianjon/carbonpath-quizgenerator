@@ -259,38 +259,34 @@ export const useQuestionGeneration = () => {
   const getQuestionStylePrompt = (style: string) => {
     switch (style) {
       case 'intuitive':
-        return `【直覺刷題型】- 嚴格使用PDF原文
-        - 題目必須直接引用PDF中的完整句子和段落
-        - 專業術語、定義完全照搬PDF原文，不得改寫
-        - 選項設計基於PDF中的原文對比概念
-        - 解析要大量引用PDF原文內容`;
+        return `【直覺學習型題目】- 專注基礎理解
+        - 題目簡潔明瞭，重點突出
+        - 基於教材內容的核心概念
+        - 選項設計清晰，便於快速理解
+        - 適合基礎學習和概念確認`;
         
       case 'diagnostic':
-        return `【錯誤診斷型】- 完全依據PDF原文
-        - 錯誤選項來自PDF中提到的對比概念或常見誤解
-        - 題目用詞必須與PDF完全一致
-        - 不創造PDF未提及的概念或術語
-        - 解析詳細引用PDF原文進行辨析`;
+        return `【概念辨析型題目】- 釐清重要概念
+        - 幫助辨別相近概念的差異
+        - 基於教材中的重要定義
+        - 強化正確理解`;
         
       case 'application':
-        return `【素養應用型】- 基於PDF核心內容
-        - 保持PDF核心術語和概念框架
-        - 應用情境符合PDF提到的範疇
-        - 答案解析回歸PDF理論基礎`;
+        return `【應用理解型題目】- 理論聯繫實際
+        - 將教材概念應用到實際情況
+        - 培養實務理解能力`;
         
       case 'strategic':
-        return `【策略推演型】- 運用PDF邏輯框架
-        - 基於PDF分析方法設計推理題
-        - 推理過程符合PDF邏輯脈絡
-        - 結論與PDF策略建議一致`;
+        return `【邏輯分析型題目】- 培養思考能力
+        - 基於教材邏輯框架設計
+        - 訓練分析和推理能力`;
         
       case 'mixed':
-        return `【混合應用型】- 全面運用PDF內容
-        - 各種題型都要嚴格使用PDF原文
-        - 保持專業術語一致性`;
+        return `【綜合學習型題目】- 多元化學習
+        - 結合各種題型特點`;
         
       default:
-        return '嚴格使用PDF原文內容，保持專業術語和表達方式完全一致';
+        return '基於教材內容設計學習題目';
     }
   };
 
@@ -299,105 +295,101 @@ export const useQuestionGeneration = () => {
     const shouldUseKeywords = checkKeywordRelevance(parameters.keywords || '', parameters.chapter);
     
     setGenerationProgress(0);
-    setGenerationStep('🚀 開始初始化...');
+    setGenerationStep('🚀 開始分析教材內容...');
     
     const progressInterval = simulateProgress();
     
     let chapterPrompt = '';
     if (parameters.chapter) {
-      chapterPrompt = `請為 PDF 文件的第 ${parameters.chapter} 頁內容製作學習題目`;
+      chapterPrompt = `針對教材第 ${parameters.chapter} 頁的學習內容`;
     }
     
     const keywordsPrompt = (shouldUseKeywords && parameters.keywords) ? 
-      `\n🎯 重點內容：${parameters.keywords}（請基於PDF原文製作相關題目）` : 
-      (parameters.keywords ? '\n（關鍵字與指定範圍關聯性較低，已忽略關鍵字限制）' : '');
+      `\n🎯 重點內容：${parameters.keywords}` : '';
     
     const stylePrompt = getQuestionStylePrompt(parameters.questionStyle);
     const difficultyPrompt = getDifficultyPrompt(parameters.difficultyLevel || 'medium');
     const sampleStylePrompt = analyzeSampleStyle(parameters.sampleQuestions);
 
-    // 修改系統提示，使其更溫和且教育導向
-    const systemPrompt = `你是專業的教育測驗專家，專門為學習者製作高品質的學習評量題目。
+    // 修改系統提示，專門針對政府教育講義設計
+    const systemPrompt = `你是專業的教育評量設計師，專門為學習者製作基於教育講義的學習評量題目。
 
-🎯 **製作任務**：
+🎯 **學習目標**：
 ${chapterPrompt}${keywordsPrompt}
-- 題目數量：製作 ${parameters.questionCount} 道完整的學習評量題目
-- 題型：選擇題（四個選項，標示為 A、B、C、D）
+- 製作 ${parameters.questionCount} 道標準選擇題（A、B、C、D 四選項）
+- 幫助學習者理解和掌握講義中的重要概念
 
-📚 **內容製作原則**：
-- 題目內容應基於提供的學習材料
-- 使用教育性和學術性的語言
-- 確保題目有助於學習者理解和記憶重要概念
-- 選項設計要有教育意義，幫助學習者辨別相關概念
+📚 **題目製作原則**：
+- 基於提供的學習講義內容
+- 重點關注基礎概念和重要定義
+- 使用清晰易懂的學術語言
+- 確保題目有助於學習理解
 
-🎨 學習風格：${stylePrompt}
+🎨 **出題風格**：${stylePrompt}
 
-📊 難度設計：${difficultyPrompt}
+📊 **難度規劃**：${difficultyPrompt}
 
-⚠️ **製作要求**：
-1. 請製作完整的 ${parameters.questionCount} 道學習題目
-2. 每題包含：題目描述、四個學習選項、正確答案、學習解析
-3. 確保所有題目都有教育價值
-4. 使用學術和教育的表達方式
+⚡ **製作要求**：
+1. 每道題目包含：清楚的題目描述、四個選項（A/B/C/D）、正確答案、簡要解析
+2. 題目內容應該適合教育學習環境
+3. 重點突出講義中的核心知識點
+4. 確保所有內容都有教育意義
 
-📝 **回傳格式（請只提供JSON陣列）**：
+📝 **標準格式（僅返回JSON陣列）**：
 [
   {
     "id": "1",
-    "content": "學習題目內容",
-    "options": {"A": "學習選項A", "B": "學習選項B", "C": "學習選項C", "D": "學習選項D"},
+    "content": "根據講義內容，以下何者正確？",
+    "options": {"A": "選項A內容", "B": "選項B內容", "C": "選項C內容", "D": "選項D內容"},
     "correct_answer": "A",
-    "explanation": "學習解析說明",
+    "explanation": "根據講義第X頁內容，正確答案為A，因為...",
     "question_type": "choice",
     "difficulty": 0.5,
     "difficulty_label": "中",
     "bloom_level": 2,
-    "chapter": "學習章節",
+    "chapter": "講義學習",
     "source_pdf": "${uploadedFile?.name || ''}",
     "page_range": "${parameters.chapter}",
-    "tags": ["學習標籤"]
+    "tags": ["基礎概念"]
   }
 ]
 
 ${sampleStylePrompt}
 
-**請確實製作 ${parameters.questionCount} 道完整的學習評量題目，謝謝！**`;
+**請製作完整的 ${parameters.questionCount} 道學習評量題目。**`;
 
     try {
-      console.log('🎯 目標生成:', parameters.questionCount, '道題目');
-      console.log('📋 參數設定:', {
-        章節: parameters.chapter,
+      console.log('🎯 政府講義題目生成開始');
+      console.log('📋 設定參數:', {
+        頁數: parameters.chapter,
         風格: parameters.questionStyle,
-        關鍵字: parameters.keywords,
-        樣題數量: parameters.sampleQuestions.length
+        題數: parameters.questionCount
       });
       
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請為學習者製作 ${parameters.questionCount} 道有教育價值的學習評量題目。每道題目都要包含完整的題目、選項、答案和解析。請直接提供JSON格式的題目陣列。${parameters.sampleQuestions.length > 0 ? '請參考提供的學習樣題風格。' : ''}`,
+          userPrompt: `請基於教育講義內容製作 ${parameters.questionCount} 道學習評量選擇題。每道題目都要完整包含題目、四個選項、正確答案和學習解析。請直接提供JSON格式回應，不要有其他內容。${parameters.sampleQuestions.length > 0 ? '請參考提供的題目風格範例。' : ''}`,
           model: 'gpt-4o-mini'
         }
       });
 
       clearInterval(progressInterval);
       
-      console.log('📨 收到回應:', response);
+      console.log('📨 AI回應狀態:', response);
 
       if (response.error) {
-        console.error('❌ Supabase function error:', response.error);
+        console.error('❌ 生成服務錯誤:', response.error);
         
-        let errorMessage = '生成題目時發生錯誤';
+        let errorMessage = '題目生成遇到問題';
         
         if (response.error.message) {
-          if (response.error.message.includes('內容政策') || response.error.message.includes('安全政策')) {
-            errorMessage = '內容被AI安全政策限制，請嘗試調整出題參數';
+          if (response.error.message.includes('內容政策') || response.error.message.includes('安全政策') || response.error.message.includes('拒絕')) {
+            errorMessage = '系統暫時無法處理此類教材內容，請嘗試：\n1. 調整出題風格設定\n2. 縮小頁數範圍\n3. 添加具體的學習重點關鍵字';
           } else if (response.error.message.includes('配額') || response.error.message.includes('quota')) {
-            errorMessage = 'OpenAI API 配額已用完，請檢查您的 OpenAI 帳戶餘額';
+            errorMessage = 'OpenAI API 使用額度不足，請檢查您的帳戶餘額';
           } else if (response.error.message.includes('金鑰') || response.error.message.includes('key')) {
-            errorMessage = 'OpenAI API 金鑰無效，請檢查設定';
-          } else if (response.error.message.includes('權限') || response.error.message.includes('permission')) {
-            errorMessage = 'OpenAI API 權限不足，請檢查帳戶狀態';
+            errorMessage = 'OpenAI API 金鑰設定問題，請檢查系統設定';
           } else {
             errorMessage = response.error.message;
           }
@@ -407,19 +399,19 @@ ${sampleStylePrompt}
       }
 
       if (!response.data?.generatedText) {
-        throw new Error('AI 回應格式錯誤：缺少生成內容');
+        throw new Error('系統回應格式異常，請重新嘗試');
       }
 
       setGenerationProgress(95);
-      setGenerationStep('✅ 驗證題目品質...');
+      setGenerationStep('✅ 整理題目格式...');
 
       let questions;
       try {
         questions = JSON.parse(response.data.generatedText);
-        console.log('✅ 成功解析題目:', questions.length, '道');
+        console.log('✅ 題目解析成功:', questions.length, '道');
       } catch (parseError) {
-        console.error('❌ 前端解析錯誤:', parseError);
-        throw new Error(`題目格式解析失敗：${parseError.message}`);
+        console.error('❌ 格式解析失敗:', parseError);
+        throw new Error(`題目格式處理失敗：${parseError.message}`);
       }
 
       if (!Array.isArray(questions)) {
@@ -438,27 +430,28 @@ ${sampleStylePrompt}
         Object.keys(q.options).length >= 2
       );
 
-      console.log('📊 品質檢查結果:', {
-        生成數量: questions.length,
+      console.log('📊 題目品質檢驗:', {
+        原始數量: questions.length,
         有效數量: validQuestions.length,
         目標數量: parameters.questionCount
       });
 
       if (validQuestions.length === 0) {
-        throw new Error('生成的題目格式不完整，請重新嘗試');
+        throw new Error('生成的題目品質不符合要求，請調整設定後重試');
       }
 
       setGenerationProgress(100);
-      setGenerationStep('🎉 生成完成！');
+      setGenerationStep('🎉 政府講義題庫生成完成！');
       
-      const successMessage = validQuestions.length >= Math.floor(parameters.questionCount * 0.8) ? 
+      const successRate = validQuestions.length / parameters.questionCount;
+      const successMessage = successRate >= 0.8 ? 
         `✅ 成功生成 ${validQuestions.length} 道完整題目` :
-        `⚠️ 生成 ${validQuestions.length} 道題目（目標：${parameters.questionCount}道）`;
+        `⚠️ 生成 ${validQuestions.length} 道題目（期望：${parameters.questionCount}道）`;
       
       toast({
         title: "生成完成",
-        description: successMessage + (parameters.sampleQuestions.length > 0 ? '（已學習樣題風格）' : ''),
-        variant: validQuestions.length >= Math.floor(parameters.questionCount * 0.8) ? "default" : "destructive"
+        description: successMessage + '，已保存至題庫',
+        variant: successRate >= 0.8 ? "default" : "destructive"
       });
 
       setTimeout(() => {
@@ -469,14 +462,14 @@ ${sampleStylePrompt}
       return validQuestions;
       
     } catch (error) {
-      console.error('❌ 生成失敗:', error);
+      console.error('❌ 生成過程失敗:', error);
       clearInterval(progressInterval);
       setGenerationProgress(0);
       setGenerationStep('');
       
       toast({
         title: "生成失敗",
-        description: error.message || '請檢查 OpenAI API 設定後重新嘗試',
+        description: error.message || '請檢查設定後重新嘗試',
         variant: "destructive"
       });
       throw error;
