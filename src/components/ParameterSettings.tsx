@@ -9,7 +9,6 @@ import { ChevronDown, Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { WeightingSystem } from './WeightingSystem';
 import { PDFOutlineSelector } from './PDFOutlineSelector';
-
 interface SampleQuestion {
   id: string;
   question: string;
@@ -17,13 +16,11 @@ interface SampleQuestion {
   options?: string[];
   answer: string;
 }
-
 interface ChapterWeight {
   name: string;
   weight: number;
   questions: number;
 }
-
 interface WeightingConfig {
   chapterWeights: ChapterWeight[];
   difficultyDistribution: {
@@ -44,9 +41,7 @@ interface WeightingConfig {
     essay: number;
   };
 }
-
 type ChapterType = 'topic' | 'pages';
-
 interface Parameters {
   chapter: string;
   chapterType: ChapterType;
@@ -57,42 +52,37 @@ interface Parameters {
   weightingConfig: WeightingConfig;
   keywords?: string; // 新增關鍵字欄位
 }
-
 interface ParameterSettingsProps {
   parameters: Parameters;
   onParametersChange: (parameters: Parameters) => void;
   uploadedFile?: File | null;
 }
-
 export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   parameters,
   onParametersChange,
   uploadedFile
 }) => {
-  const updateParameter = <K extends keyof Parameters>(key: K, value: Parameters[K]) => {
+  const updateParameter = <K extends keyof Parameters,>(key: K, value: Parameters[K]) => {
     onParametersChange({
       ...parameters,
       [key]: value
     });
   };
-
   const updateQuestionCount = (newCount: number) => {
     // 更新題目數量時，同時更新權重配置中的相關數量
     const updatedConfig = {
       ...parameters.weightingConfig,
       chapterWeights: parameters.weightingConfig.chapterWeights.map(chapter => ({
         ...chapter,
-        questions: Math.round((chapter.weight / 100) * newCount)
+        questions: Math.round(chapter.weight / 100 * newCount)
       }))
     };
-    
     onParametersChange({
       ...parameters,
       questionCount: newCount,
       weightingConfig: updatedConfig
     });
   };
-
   const updateWeightingConfig = (config: WeightingConfig) => {
     updateParameter('weightingConfig', config);
   };
@@ -106,25 +96,33 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
 
   // 檢查是否啟用進階難度設定
   const isAdvancedDifficultyEnabled = () => {
-    const { easy, medium, hard } = parameters.weightingConfig.difficultyDistribution;
+    const {
+      easy,
+      medium,
+      hard
+    } = parameters.weightingConfig.difficultyDistribution;
     return !(easy === 20 && medium === 60 && hard === 20);
   };
 
   // 計算難度分佈的總題數
   const getDifficultyTotal = () => {
-    const { easy, medium, hard } = parameters.weightingConfig.difficultyDistribution;
-    return Math.round(parameters.questionCount * easy / 100) + 
-           Math.round(parameters.questionCount * medium / 100) + 
-           Math.round(parameters.questionCount * hard / 100);
+    const {
+      easy,
+      medium,
+      hard
+    } = parameters.weightingConfig.difficultyDistribution;
+    return Math.round(parameters.questionCount * easy / 100) + Math.round(parameters.questionCount * medium / 100) + Math.round(parameters.questionCount * hard / 100);
   };
 
   // 計算認知層次的總題數
   const getCognitiveTotal = () => {
-    const { remember, understand, apply, analyze } = parameters.weightingConfig.cognitiveDistribution;
-    return Math.round(parameters.questionCount * remember / 100) + 
-           Math.round(parameters.questionCount * understand / 100) + 
-           Math.round(parameters.questionCount * apply / 100) + 
-           Math.round(parameters.questionCount * analyze / 100);
+    const {
+      remember,
+      understand,
+      apply,
+      analyze
+    } = parameters.weightingConfig.cognitiveDistribution;
+    return Math.round(parameters.questionCount * remember / 100) + Math.round(parameters.questionCount * understand / 100) + Math.round(parameters.questionCount * apply / 100) + Math.round(parameters.questionCount * analyze / 100);
   };
 
   // 初始化章節權重（如果章節名稱改變）
@@ -132,16 +130,16 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
     if (parameters.chapter && !parameters.weightingConfig.chapterWeights.find(ch => ch.name === parameters.chapter)) {
       const newConfig = {
         ...parameters.weightingConfig,
-        chapterWeights: [
-          { name: parameters.chapter, weight: 100, questions: parameters.questionCount }
-        ]
+        chapterWeights: [{
+          name: parameters.chapter,
+          weight: 100,
+          questions: parameters.questionCount
+        }]
       };
       updateParameter('weightingConfig', newConfig);
     }
   }, [parameters.chapter]);
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* 基本設定 */}
       <Card>
         <CardHeader>
@@ -154,10 +152,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           <div className="space-y-4">
             <div>
               <Label htmlFor="chapterType">出題範圍類型</Label>
-              <Select 
-                value={parameters.chapterType} 
-                onValueChange={(value: ChapterType) => updateParameter('chapterType', value)}
-              >
+              <Select value={parameters.chapterType} onValueChange={(value: ChapterType) => updateParameter('chapterType', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="選擇範圍類型" />
                 </SelectTrigger>
@@ -172,38 +167,21 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               <Label htmlFor="chapter">
                 {parameters.chapterType === 'pages' ? 'PDF 頁數範圍' : '主題或章節名稱'}
               </Label>
-              <Input
-                id="chapter"
-                placeholder={
-                  parameters.chapterType === 'pages' 
-                    ? "例如：1-5, 10, 15-20" 
-                    : "例如：第一章 - 基礎概念"
-                }
-                value={parameters.chapter}
-                onChange={(e) => updateParameter('chapter', e.target.value)}
-              />
+              <Input id="chapter" placeholder={parameters.chapterType === 'pages' ? "例如：1-5, 10, 15-20" : "例如：第一章 - 基礎概念"} value={parameters.chapter} onChange={e => updateParameter('chapter', e.target.value)} />
               <p className="text-xs text-gray-500 mt-1">
-                {parameters.chapterType === 'pages' 
-                  ? "指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍"
-                  : "描述出題的主題範圍，這將作為 AI 生成題目的重要參考"}
+                {parameters.chapterType === 'pages' ? "指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍" : "描述出題的主題範圍，這將作為 AI 生成題目的重要參考"}
               </p>
             </div>
             
             <div>
               <Label htmlFor="difficulty">
                 基本難度等級
-                {isAdvancedDifficultyEnabled() && (
-                  <span className="text-xs text-amber-600 ml-2 flex items-center gap-1">
+                {isAdvancedDifficultyEnabled() && <span className="text-xs text-amber-600 ml-2 flex items-center gap-1">
                     <Info className="h-3 w-3" />
                     (進階設定已啟用)
-                  </span>
-                )}
+                  </span>}
               </Label>
-              <Select 
-                value={parameters.difficulty} 
-                onValueChange={(value) => updateParameter('difficulty', value)}
-                disabled={isAdvancedDifficultyEnabled()}
-              >
+              <Select value={parameters.difficulty} onValueChange={value => updateParameter('difficulty', value)} disabled={isAdvancedDifficultyEnabled()}>
                 <SelectTrigger>
                   <SelectValue placeholder="選擇難度" />
                 </SelectTrigger>
@@ -214,16 +192,12 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                   <SelectItem value="expert">專家</SelectItem>
                 </SelectContent>
               </Select>
-              {isAdvancedDifficultyEnabled() && (
-                <p className="text-xs text-amber-600 mt-1">
+              {isAdvancedDifficultyEnabled() && <p className="text-xs text-amber-600 mt-1">
                   進階設定中的難度分佈將覆蓋此基本設定
-                </p>
-              )}
-              {!isAdvancedDifficultyEnabled() && (
-                <p className="text-xs text-gray-500 mt-1">
+                </p>}
+              {!isAdvancedDifficultyEnabled() && <p className="text-xs text-gray-500 mt-1">
                   若未使用進階設定，將套用此基本難度等級
-                </p>
-              )}
+                </p>}
             </div>
 
             <div>
@@ -232,22 +206,13 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                 <div className="text-xs text-gray-500 mt-1 space-y-1">
                   <div>難度分佈總計：{getDifficultyTotal()} 題</div>
                   <div>認知層次總計：{getCognitiveTotal()} 題</div>
-                  {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && (
-                    <div className="text-amber-600 font-medium">
+                  {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && <div className="text-amber-600 font-medium">
                       ⚠️ 總題數不一致，請調整進階設定中的百分比
-                    </div>
-                  )}
+                    </div>}
                 </div>
               </Label>
               <div className="mt-2">
-                <Slider
-                  value={[parameters.questionCount]}
-                  onValueChange={(value) => updateQuestionCount(value[0])}
-                  max={50}
-                  min={5}
-                  step={5}
-                  className="w-full"
-                />
+                <Slider value={[parameters.questionCount]} onValueChange={value => updateQuestionCount(value[0])} max={50} min={5} step={5} className="w-full" />
               </div>
             </div>
           </div>
@@ -261,29 +226,17 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                 </div>
                 <div>
                   <div className="font-medium text-blue-900">選擇題</div>
-                  <p className="text-xs text-blue-700 mt-1">
-                    系統已固定為選擇題型，提供 4 個選項供學生選擇
-                  </p>
+                  
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-500">
-              目前系統專注於選擇題生成，確保題目品質和一致性
-            </p>
+            
           </div>
         </CardContent>
       </Card>
 
       {/* PDF 大綱選擇 */}
-      {uploadedFile && (
-        <PDFOutlineSelector
-          pdfFile={uploadedFile}
-          selectedTopics={parameters.chapter ? parameters.chapter.split(', ') : []}
-          onTopicsChange={handleTopicsChange}
-          chapterType={parameters.chapterType}
-          chapterInput={parameters.chapter}
-        />
-      )}
+      {uploadedFile && <PDFOutlineSelector pdfFile={uploadedFile} selectedTopics={parameters.chapter ? parameters.chapter.split(', ') : []} onTopicsChange={handleTopicsChange} chapterType={parameters.chapterType} chapterInput={parameters.chapter} />}
 
       {/* 進階設定 - 可摺疊 */}
       <Collapsible>
@@ -319,12 +272,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             <CardContent>
               <div>
                 <Label htmlFor="keywords">出題關鍵字</Label>
-                <Input
-                  id="keywords"
-                  placeholder="例如：機器學習, 深度學習, 神經網路"
-                  value={parameters.keywords || ''}
-                  onChange={(e) => updateParameter('keywords', e.target.value)}
-                />
+                <Input id="keywords" placeholder="例如：機器學習, 深度學習, 神經網路" value={parameters.keywords || ''} onChange={e => updateParameter('keywords', e.target.value)} />
                 <p className="text-xs text-gray-500 mt-1">
                   輸入希望題目聚焦的關鍵字，用逗號分隔多個關鍵字。這將幫助 AI 生成更符合特定主題的題目。
                 </p>
@@ -333,19 +281,11 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </Card>
 
           {/* 樣題參考 */}
-          <SampleQuestions
-            sampleQuestions={parameters.sampleQuestions}
-            onSampleQuestionsChange={(questions) => updateParameter('sampleQuestions', questions)}
-          />
+          <SampleQuestions sampleQuestions={parameters.sampleQuestions} onSampleQuestionsChange={questions => updateParameter('sampleQuestions', questions)} />
 
           {/* 權重分配 */}
-          <WeightingSystem
-            config={parameters.weightingConfig}
-            onConfigChange={updateWeightingConfig}
-            totalQuestions={parameters.questionCount}
-          />
+          <WeightingSystem config={parameters.weightingConfig} onConfigChange={updateWeightingConfig} totalQuestions={parameters.questionCount} />
         </CollapsibleContent>
       </Collapsible>
-    </div>
-  );
+    </div>;
 };
