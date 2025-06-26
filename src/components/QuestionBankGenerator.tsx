@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
 import { QuestionDisplay } from './QuestionDisplay';
-import { APIKeySettings } from './APIKeySettings';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, FileText, Settings, Zap, Key } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Brain, FileText, Settings, Zap } from 'lucide-react';
 
 interface SampleQuestion {
   id: string;
@@ -89,68 +87,33 @@ export const QuestionBankGenerator = () => {
   const [generatedQuestions, setGeneratedQuestions] = useState<QuestionData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // 載入儲存的 API 密鑰
+  // 載入後台儲存的 API 密鑰
   useEffect(() => {
     loadApiKey();
   }, []);
 
   const loadApiKey = async () => {
     try {
-      // 使用簡單的 user_id（可以是瀏覽器 session ID 或其他識別符）
       const userId = getOrCreateUserId();
       
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('api_key')
-        .eq('user_id', userId)
-        .eq('service_name', 'openai')
-        .single();
+      const response = await fetch('/functions/v1/manage-api-keys', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          method: 'GET',
+          userId,
+          serviceName: 'openai'
+        })
+      });
 
-      if (data && !error) {
-        setApiKey(data.api_key);
+      const data = await response.json();
+      if (data.apiKey) {
+        setApiKey(data.apiKey);
       }
     } catch (error) {
       console.log('載入 API 密鑰時發生錯誤:', error);
-    }
-  };
-
-  const saveApiKey = async (key: string) => {
-    try {
-      const userId = getOrCreateUserId();
-      
-      // 先檢查是否已存在
-      const { data: existing } = await supabase
-        .from('api_keys')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('service_name', 'openai')
-        .single();
-
-      if (existing) {
-        // 更新現有記錄
-        await supabase
-          .from('api_keys')
-          .update({ 
-            api_key: key, 
-            updated_at: new Date().toISOString() 
-          })
-          .eq('user_id', userId)
-          .eq('service_name', 'openai');
-      } else {
-        // 建立新記錄
-        await supabase
-          .from('api_keys')
-          .insert({
-            user_id: userId,
-            service_name: 'openai',
-            api_key: key
-          });
-      }
-
-      setApiKey(key);
-    } catch (error) {
-      console.error('儲存 API 密鑰時發生錯誤:', error);
-      throw error;
     }
   };
 
@@ -165,7 +128,7 @@ export const QuestionBankGenerator = () => {
 
   const generateQuestionsWithAI = async () => {
     if (!apiKey) {
-      alert('請先設定 OpenAI API 密鑰');
+      alert('系統尚未設定 OpenAI API 密鑰，請聯繫管理員');
       return;
     }
 
@@ -300,17 +263,11 @@ ${q.options ? q.options.join('\n') : ''}
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* 工作台主體 */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* 左側：檔案上傳與 API 設定 */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* API 密鑰設定 */}
-          <APIKeySettings 
-            apiKey={apiKey}
-            onApiKeyChange={saveApiKey}
-          />
-
+    <div className="max-w-full mx-auto">
+      {/* 新版面配置：左1/3右2/3 */}
+      <div className="flex gap-6 h-[calc(100vh-12rem)]">
+        {/* 左側：教材上傳與參數設定 (1/3) */}
+        <div className="w-1/3 space-y-6 overflow-y-auto pr-4">
           {/* PDF 上傳區 */}
           <Card>
             <CardHeader>
@@ -323,6 +280,22 @@ ${q.options ? q.options.join('\n') : ''}
               <PDFUploader 
                 uploadedFile={uploadedFile}
                 onFileUpload={setUploadedFile}
+              />
+            </CardContent>
+          </Card>
+
+          {/* 參數設定 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Settings className="h-5 w-5 text-green-600" />
+                參數設定
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ParameterSettings 
+                parameters={parameters}
+                onParametersChange={setParameters}
               />
             </CardContent>
           </Card>
@@ -348,34 +321,16 @@ ${q.options ? q.options.join('\n') : ''}
           </Card>
         </div>
 
-        {/* 中間：參數設定 */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Settings className="h-5 w-5 text-green-600" />
-                參數設定
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-[80vh] overflow-y-auto">
-              <ParameterSettings 
-                parameters={parameters}
-                onParametersChange={setParameters}
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 右側：生成結果 */}
-        <div className="lg:col-span-1">
-          <Card>
+        {/* 右側：生成結果與預覽 (2/3) */}
+        <div className="w-2/3">
+          <Card className="h-full">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Brain className="h-5 w-5 text-purple-600" />
-                生成結果
+                生成結果與預覽
               </CardTitle>
             </CardHeader>
-            <CardContent className="max-h-[80vh] overflow-y-auto">
+            <CardContent className="h-[calc(100%-4rem)] overflow-y-auto">
               <QuestionDisplay questions={generatedQuestions} />
             </CardContent>
           </Card>
