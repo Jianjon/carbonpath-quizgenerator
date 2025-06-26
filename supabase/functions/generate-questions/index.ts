@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -131,14 +130,14 @@ serve(async (req) => {
       throw new Error('系統暫時無法處理此教材內容，請嘗試調整出題設定');
     }
 
-    // 如果是內容不足，直接返回說明訊息
+    // 如果是內容不足，返回成功狀態但包含錯誤訊息
     if (isContentInsufficient) {
       console.log('📋 內容不足回報:', generatedText);
       return new Response(JSON.stringify({ 
         error: generatedText,
         isContentInsufficient: true
       }), {
-        status: 400,
+        status: 200, // 改為200狀態碼
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -158,7 +157,7 @@ serve(async (req) => {
     }
 
     if (jsonStart === -1 || jsonEnd === -1) {
-      console.error('❌ 沒有找到有效的JSON結構');
+      console.error('❌ 没有找到有效的JSON結構');
       console.error('生成內容樣本:', generatedText.substring(0, 500));
       
       // 提供基於樣題的備用題目

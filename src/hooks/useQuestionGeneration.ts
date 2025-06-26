@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -447,39 +446,30 @@ ${sampleStylePrompt}
 
       if (response.error) {
         console.error('❌ 生成服務錯誤:', response.error);
-        
-        let errorMessage = '題目生成遇到問題';
-        
-        // 檢查是否為內容不足的錯誤
-        if (response.error.isContentInsufficient || 
-            (response.error.message && (
-              response.error.message.includes('內容不足') ||
-              response.error.message.includes('指定頁數') ||
-              response.error.message.includes('不足以生成')
-            ))) {
-          
-          const pageRange = parameters.chapter;
-          errorMessage = `PDF第 ${pageRange} 頁內容不足以生成 ${parameters.questionCount} 道題目。
+        throw new Error(response.error.message || '服務錯誤');
+      }
+
+      if (!response.data) {
+        throw new Error('系統回應格式異常，請重新嘗試');
+      }
+
+      // 檢查是否為內容不足的情況
+      if (response.data.isContentInsufficient || response.data.error) {
+        const pageRange = parameters.chapter;
+        const errorMessage = `PDF第 ${pageRange} 頁內容不足以生成 ${parameters.questionCount} 道題目。
 
 📋 建議解決方案：
 1️⃣ 減少題目數量到 3-5 道
 2️⃣ 擴大頁數範圍（例如：${pageRange.includes('-') ? 
-            `${pageRange.split('-')[0]}-${parseInt(pageRange.split('-')[1]) + 5}` : 
-            `${pageRange}-${parseInt(pageRange) + 5}`}）
+          `${pageRange.split('-')[0]}-${parseInt(pageRange.split('-')[1]) + 5}` : 
+          `${pageRange}-${parseInt(pageRange) + 5}`}）
 3️⃣ 檢查頁數範圍是否為PDF閱讀器顯示的實際頁碼
 4️⃣ 確認該頁面有足夠的文字內容（非空白或純圖片頁面）`;
-        } else if (response.error.message) {
-          if (response.error.message.includes('題目數量過多') || response.error.message.includes('減少到15題')) {
-            errorMessage = `題目數量過多導致生成問題，建議：\n1. 減少題目數量到10-15道\n2. 確認PDF第 ${parameters.chapter} 頁有足夠內容\n3. 分批生成題目`;
-          } else {
-            errorMessage = response.error.message;
-          }
-        }
         
         throw new Error(errorMessage);
       }
 
-      if (!response.data?.generatedText) {
+      if (!response.data.generatedText) {
         throw new Error('系統回應格式異常，請重新嘗試');
       }
 
