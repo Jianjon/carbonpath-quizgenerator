@@ -57,11 +57,11 @@ export const Footer = () => {
             <h3 className="text-xl font-semibold text-gray-900 mb-4">聯絡我</h3>
             <div className="flex justify-center items-center space-x-8">
               <div className="text-center">
-                <div className="bg-white p-3 rounded-lg shadow-sm inline-block mb-2">
+                <div className="bg-white p-4 rounded-lg shadow-sm inline-block mb-2">
                   <img 
-                    src="/lovable-uploads/3e6df4c9-ac5c-43e2-adea-73676cb85bd6.png" 
+                    src="/lovable-uploads/23b712ea-8c5e-4a2c-80c1-3bf8875002b5.png" 
                     alt="聯絡方式 QR Code" 
-                    className="w-24 h-24 object-contain"
+                    className="w-32 h-32 object-contain"
                   />
                 </div>
               </div>
