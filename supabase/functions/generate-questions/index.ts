@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { systemPrompt, userPrompt, model = 'gpt-4o-mini' } = await req.json();
+    const { systemPrompt, userPrompt, model = 'gpt-4o' } = await req.json();
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -31,7 +31,7 @@ serve(async (req) => {
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 3000
+        max_tokens: 4000
       }),
     });
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
@@ -6,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Brain, FileText, Settings, Zap } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SampleQuestion {
   id: string;
@@ -44,14 +46,18 @@ interface WeightingConfig {
 
 interface QuestionData {
   id: string;
-  type: string;
-  question: string;
-  options: string[];
-  answer: string;
+  content: string;
+  options: Record<string, string>;
+  correct_answer: string;
   explanation: string;
-  difficulty: string;
+  question_type: string;
+  difficulty: number;
+  difficulty_label: string;
+  bloom_level: number;
   chapter: string;
-  cognitiveLevel?: string;
+  source_pdf?: string;
+  page_range?: string;
+  tags?: string[];
 }
 
 type ChapterType = 'topic' | 'pages';
@@ -64,7 +70,7 @@ interface Parameters {
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
   weightingConfig: WeightingConfig;
-  keywords?: string; // 新增關鍵字欄位
+  keywords?: string;
 }
 
 export const QuestionBankGenerator = () => {
@@ -76,7 +82,7 @@ export const QuestionBankGenerator = () => {
     questionCount: 10,
     questionTypes: ['multiple-choice'],
     sampleQuestions: [] as SampleQuestion[],
-    keywords: '', // 初始化關鍵字
+    keywords: '',
     weightingConfig: {
       chapterWeights: [],
       difficultyDistribution: {
@@ -103,7 +109,6 @@ export const QuestionBankGenerator = () => {
 
   // 取得最終使用的難度設定
   const getEffectiveDifficulty = () => {
-    // 檢查進階設定是否啟用（有自訂分佈且不全為預設值）
     const { easy, medium, hard } = parameters.weightingConfig.difficultyDistribution;
     const hasAdvancedDifficulty = !(easy === 20 && medium === 60 && hard === 20);
     
@@ -111,7 +116,6 @@ export const QuestionBankGenerator = () => {
       return parameters.weightingConfig.difficultyDistribution;
     }
     
-    // 使用基本設定
     switch (parameters.difficulty) {
       case 'easy':
         return { easy: 70, medium: 25, hard: 5 };
@@ -129,7 +133,6 @@ export const QuestionBankGenerator = () => {
   const generateQuestionsWithAI = async () => {
     const effectiveDifficulty = getEffectiveDifficulty();
     
-    // 根據章節類型調整提示詞
     let chapterPrompt = '';
     if (parameters.chapterType === 'pages' && parameters.chapter) {
       chapterPrompt = `請針對 PDF 文件的第 ${parameters.chapter} 頁內容出題`;
@@ -137,7 +140,6 @@ export const QuestionBankGenerator = () => {
       chapterPrompt = `請針對「${parameters.chapter}」這個主題出題`;
     }
 
-    // 關鍵字提示
     const keywordsPrompt = parameters.keywords 
       ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}`
       : '';
@@ -171,14 +173,18 @@ ${q.options ? q.options.join('\n') : ''}
 請以 JSON 格式回傳，每個題目包含：
 {
   "id": "題目編號",
-  "type": "題型",
-  "question": "題目內容",
-  "options": ["選項陣列"],
-  "answer": "正確答案",
+  "content": "題目內容",
+  "options": {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"},
+  "correct_answer": "正確答案代碼(如A)",
   "explanation": "詳細解析",
-  "difficulty": "難度等級",
+  "question_type": "choice",
+  "difficulty": 0.5,
+  "difficulty_label": "中",
+  "bloom_level": 2,
   "chapter": "章節名稱",
-  "cognitiveLevel": "認知層次"
+  "source_pdf": "${uploadedFile?.name || ''}",
+  "page_range": "${parameters.chapterType === 'pages' ? parameters.chapter : ''}",
+  "tags": ["關鍵字1", "關鍵字2"]
 }`;
 
     try {
@@ -190,7 +196,7 @@ ${q.options ? q.options.join('\n') : ''}
         body: JSON.stringify({
           systemPrompt,
           userPrompt: `請生成 ${parameters.questionCount} 道題目，${uploadedFile?.name ? `參考 PDF 內容：${uploadedFile.name}` : chapterPrompt}`,
-          model: 'gpt-4o-mini'
+          model: 'gpt-4o'
         })
       });
 
@@ -201,12 +207,10 @@ ${q.options ? q.options.join('\n') : ''}
       const data = await response.json();
       const content = data.generatedText;
       
-      // 嘗試解析 JSON
       let questions;
       try {
         questions = JSON.parse(content);
       } catch {
-        // 如果直接解析失敗，嘗試提取 JSON 部分
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           questions = JSON.parse(jsonMatch[0]);
@@ -235,11 +239,9 @@ ${q.options ? q.options.join('\n') : ''}
 
   return (
     <div className="max-w-full mx-auto">
-      {/* 新版面配置：左1/3右2/3 */}
       <div className="flex gap-6 h-[calc(100vh-12rem)]">
         {/* 左側：教材上傳與參數設定 (1/3) */}
         <div className="w-1/3 space-y-6 overflow-y-auto pr-4">
-          {/* PDF 上傳區 */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -255,7 +257,6 @@ ${q.options ? q.options.join('\n') : ''}
             </CardContent>
           </Card>
 
-          {/* 參數設定 */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -271,7 +272,6 @@ ${q.options ? q.options.join('\n') : ''}
             </CardContent>
           </Card>
 
-          {/* 生成按鈕 */}
           <Card>
             <CardContent className="pt-6">
               <Button 

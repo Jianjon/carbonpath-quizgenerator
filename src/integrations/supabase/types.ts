@@ -36,6 +36,130 @@ export type Database = {
         }
         Relationships: []
       }
+      chapters: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          pdf_source: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          pdf_source?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          pdf_source?: string | null
+        }
+        Relationships: []
+      }
+      learning_goals: {
+        Row: {
+          chapter_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          chapter_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          chapter_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_goals_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_bank: {
+        Row: {
+          bloom_level: number | null
+          chapter_id: string | null
+          content: string
+          correct_answer: string
+          created_at: string
+          created_by: string | null
+          difficulty: number | null
+          difficulty_label: string | null
+          explanation: string
+          id: string
+          learning_goal_ids: string[] | null
+          options: Json | null
+          page_range: string | null
+          question_type: string
+          source_pdf: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          bloom_level?: number | null
+          chapter_id?: string | null
+          content: string
+          correct_answer: string
+          created_at?: string
+          created_by?: string | null
+          difficulty?: number | null
+          difficulty_label?: string | null
+          explanation: string
+          id?: string
+          learning_goal_ids?: string[] | null
+          options?: Json | null
+          page_range?: string | null
+          question_type: string
+          source_pdf?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          bloom_level?: number | null
+          chapter_id?: string | null
+          content?: string
+          correct_answer?: string
+          created_at?: string
+          created_by?: string | null
+          difficulty?: number | null
+          difficulty_label?: string | null
+          explanation?: string
+          id?: string
+          learning_goal_ids?: string[] | null
+          options?: Json | null
+          page_range?: string | null
+          question_type?: string
+          source_pdf?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
