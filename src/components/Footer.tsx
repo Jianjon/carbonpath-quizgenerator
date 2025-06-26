@@ -77,31 +77,62 @@ export const Footer = () => {
           {/* 聯絡資訊 */}
           <div className="mt-8 text-center">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">聯絡我</h3>
-            <div className="flex justify-center items-center space-x-8">
-              <div className="text-center">
-                <div className="bg-white p-6 rounded-lg shadow-sm inline-block mb-2 px-0 py-0 overflow-hidden">
-                  <img 
-                    src="/lovable-uploads/b2c9161e-c5d5-4796-b48e-a38b02429785.png" 
-                    alt="聯絡方式 QR Code" 
-                    className="object-contain"
-                    style={getQRCodeStyle()}
-                  />
+            
+            {/* 手機版佈局：QR Code 在上方，聯絡資訊在下方 */}
+            {isMobile ? (
+              <div className="flex flex-col items-center space-y-6">
+                <div className="text-center">
+                  <div className="bg-white p-6 rounded-lg shadow-sm inline-block mb-2 px-0 py-0 overflow-hidden">
+                    <img 
+                      src="/lovable-uploads/b2c9161e-c5d5-4796-b48e-a38b02429785.png" 
+                      alt="聯絡方式 QR Code" 
+                      className="object-contain"
+                      style={getQRCodeStyle()}
+                    />
+                  </div>
+                </div>
+                <div className="text-center space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-gray-700">
+                    <User className="h-4 w-4" />
+                    <span>Jon Chang</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 text-gray-700">
+                    <Mail className="h-4 w-4" />
+                    <span>jonchang1980@gmail.com</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    （掃描QR Code或發送Email聯絡我們）
+                  </p>
                 </div>
               </div>
-              <div className="text-left space-y-2">
-                <div className="flex items-center gap-2 text-gray-700">
-                  <User className="h-4 w-4" />
-                  <span>Jon Chang</span>
+            ) : (
+              /* 桌面版佈局：保持原來的左右並排 */
+              <div className="flex justify-center items-center space-x-8">
+                <div className="text-center">
+                  <div className="bg-white p-6 rounded-lg shadow-sm inline-block mb-2 px-0 py-0 overflow-hidden">
+                    <img 
+                      src="/lovable-uploads/b2c9161e-c5d5-4796-b48e-a38b02429785.png" 
+                      alt="聯絡方式 QR Code" 
+                      className="object-contain"
+                      style={getQRCodeStyle()}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <Mail className="h-4 w-4" />
-                  <span>jonchang1980@gmail.com</span>
+                <div className="text-left space-y-2">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <User className="h-4 w-4" />
+                    <span>Jon Chang</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Mail className="h-4 w-4" />
+                    <span>jonchang1980@gmail.com</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    （掃描QR Code或發送Email聯絡我們）
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  （掃描QR Code或發送Email聯絡我們）
-                </p>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
