@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, Circle, FileText, Tag, Download, Eye, Save, Edit, RotateCcw, List, Grid } from 'lucide-react';
+import { CheckCircle, Circle, FileText, Tag, Download, Eye, Edit, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -30,60 +30,46 @@ interface QuestionData {
 interface QuestionDisplayProps {
   questions: QuestionData[];
   parameters?: any;
+  onQuestionsChange?: (questions: QuestionData[]) => void;
 }
 
-export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, parameters }) => {
-  const [sessionName, setSessionName] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ 
+  questions, 
+  parameters, 
+  onQuestionsChange 
+}) => {
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<QuestionData | null>(null);
   const [showFullPage, setShowFullPage] = useState(false);
-  const [displayMode, setDisplayMode] = useState<'card' | 'list'>('card');
 
-  // 獲取題目風格標籤
-  const getQuestionStyleLabel = (style: string) => {
-    switch (style) {
-      case 'intuitive': return '直覺刷題';
-      case 'application': return '素養應用';
-      case 'diagnostic': return '錯誤診斷';
-      case 'strategic': return '策略推演';
-      case 'mixed': return '混合應用';
-      default: return '選擇題';
-    }
-  };
-
-  // 修改題目（模擬功能）
-  const handleEditQuestion = (questionId: string) => {
-    toast({
-      title: "編輯功能",
-      description: "題目編輯功能開發中，敬請期待！"
-    });
-  };
-
-  // 重新生成題目（模擬功能）
-  const handleRegenerateQuestion = (questionId: string) => {
-    toast({
-      title: "重新生成",
-      description: "單題重新生成功能開發中，敬請期待！"
-    });
-  };
-
-  // 保存到資料庫
-  const saveToDatabase = async () => {
-    if (!sessionName.trim()) {
-      toast({
-        title: "請輸入會話名稱",
-        description: "請為這批題目輸入一個識別名稱",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSaving(true);
+  // 獲取用戶IP位址
+  const getUserIP = async () => {
     try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.error('Failed to get IP:', error);
+      return 'unknown';
+    }
+  };
+
+  // 自動保存到資料庫
+  useEffect(() => {
+    if (questions.length > 0) {
+      saveQuestionsAutomatically();
+    }
+  }, [questions]);
+
+  const saveQuestionsAutomatically = async () => {
+    try {
+      const userIP = await getUserIP();
+      
       // 創建生成會話
       const { data: session, error: sessionError } = await supabase
         .from('generation_sessions')
         .insert({
-          session_name: sessionName,
+          session_name: `自動保存_${new Date().toISOString().split('T')[0]}_${userIP}`,
           parameters: parameters || {},
           question_count: questions.length
         })
@@ -115,22 +101,73 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, par
 
       if (questionsError) throw questionsError;
 
-      toast({
-        title: "保存成功",
-        description: `${questions.length} 道題目已保存到資料庫`
-      });
-
-      setSessionName('');
+      console.log(`自動保存成功: ${questions.length} 道題目已保存`);
     } catch (error) {
-      console.error('保存失敗:', error);
-      toast({
-        title: "保存失敗",
-        description: error.message || "請重新嘗試",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
+      console.error('自動保存失敗:', error);
     }
+  };
+
+  // 獲取題目風格標籤
+  const getQuestionStyleLabel = (style: string) => {
+    switch (style) {
+      case 'intuitive': return '直覺刷題';
+      case 'application': return '素養應用';
+      case 'diagnostic': return '錯誤診斷';
+      case 'strategic': return '策略推演';
+      case 'mixed': return '混合應用';
+      default: return '選擇題';
+    }
+  };
+
+  // 開始編輯題目
+  const handleEditQuestion = (question: QuestionData) => {
+    setEditingQuestionId(question.id);
+    setEditingQuestion({ ...question });
+  };
+
+  // 取消編輯
+  const handleCancelEdit = () => {
+    setEditingQuestionId(null);
+    setEditingQuestion(null);
+  };
+
+  // 確認修改
+  const handleConfirmEdit = () => {
+    if (!editingQuestion) return;
+
+    const updatedQuestions = questions.map(q => 
+      q.id === editingQuestion.id ? editingQuestion : q
+    );
+    
+    onQuestionsChange?.(updatedQuestions);
+    setEditingQuestionId(null);
+    setEditingQuestion(null);
+    
+    toast({
+      title: "修改成功",
+      description: "題目已更新"
+    });
+  };
+
+  // 更新編輯中的題目
+  const updateEditingQuestion = (field: string, value: any) => {
+    if (!editingQuestion) return;
+    setEditingQuestion({
+      ...editingQuestion,
+      [field]: value
+    });
+  };
+
+  // 更新選項
+  const updateOption = (key: string, value: string) => {
+    if (!editingQuestion) return;
+    setEditingQuestion({
+      ...editingQuestion,
+      options: {
+        ...editingQuestion.options,
+        [key]: value
+      }
+    });
   };
 
   // 下載為PDF
@@ -220,177 +257,124 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, par
           生成題目總數：{questions.length} 題
         </h2>
         
-        <div className="flex items-center gap-4">
-          {/* 顯示模式切換 */}
-          <div className="flex items-center gap-2">
-            <Label htmlFor="display-mode" className="text-sm font-medium">
-              顯示方式：
-            </Label>
-            <div className="flex items-center gap-2">
-              <Grid className={`h-4 w-4 ${displayMode === 'card' ? 'text-blue-600' : 'text-gray-400'}`} />
-              <Switch
-                id="display-mode"
-                checked={displayMode === 'list'}
-                onCheckedChange={(checked) => setDisplayMode(checked ? 'list' : 'card')}
-              />
-              <List className={`h-4 w-4 ${displayMode === 'list' ? 'text-blue-600' : 'text-gray-400'}`} />
-            </div>
-          </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={downloadAsPDF}>
+            <Download className="h-4 w-4 mr-2" />
+            下載PDF
+          </Button>
           
-          <div className="flex gap-2">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Save className="h-4 w-4 mr-2" />
-                  保存到資料庫
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>保存題庫</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">會話名稱</label>
-                    <Input
-                      value={sessionName}
-                      onChange={(e) => setSessionName(e.target.value)}
-                      placeholder="例如：第一章測驗題庫"
-                    />
-                  </div>
-                  <Button 
-                    onClick={saveToDatabase} 
-                    disabled={isSaving}
-                    className="w-full"
-                  >
-                    {isSaving ? '保存中...' : '確認保存'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+          <Button variant="outline" size="sm" onClick={downloadAsExcel}>
+            <Download className="h-4 w-4 mr-2" />
+            下載Excel
+          </Button>
+          
+          <Dialog open={showFullPage} onOpenChange={setShowFullPage}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Eye className="h-4 w-4 mr-2" />
+                全屏預覽
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>題庫完整預覽</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {questions.map((question, index) => (
+                  <Card key={question.id} className="border-l-4 border-l-blue-500">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-start justify-between">
+                        <span className="font-medium text-gray-800">
+                          第 {index + 1} 題
+                        </span>
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {question.difficulty_label || '中等'}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {getQuestionStyleLabel(parameters?.questionStyle || 'choice')}
+                          </Badge>
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <p className="text-gray-800 leading-relaxed font-medium">
+                          {question.content}
+                        </p>
+                      </div>
 
-            <Button variant="outline" size="sm" onClick={downloadAsPDF}>
-              <Download className="h-4 w-4 mr-2" />
-              下載PDF
-            </Button>
-            
-            <Button variant="outline" size="sm" onClick={downloadAsExcel}>
-              <Download className="h-4 w-4 mr-2" />
-              下載Excel
-            </Button>
-            
-            <Dialog open={showFullPage} onOpenChange={setShowFullPage}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Eye className="h-4 w-4 mr-2" />
-                  全屏預覽
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>題庫完整預覽</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  {questions.map((question, index) => (
-                    <Card key={question.id} className="border-l-4 border-l-blue-500">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-start justify-between">
-                          <span className="font-medium text-gray-800">
-                            第 {index + 1} 題
-                          </span>
-                          <div className="flex gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {question.difficulty_label || '中等'}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              {getQuestionStyleLabel(parameters?.questionStyle || 'choice')}
-                            </Badge>
-                          </div>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="p-4 bg-gray-50 rounded-lg">
-                          <p className="text-gray-800 leading-relaxed font-medium">
-                            {question.content}
+                      {question.options && (
+                        <div className="space-y-2">
+                          {Object.entries(question.options).map(([key, value]) => (
+                            <div
+                              key={key}
+                              className="flex items-center space-x-3 p-3 rounded-lg border bg-white border-gray-200"
+                            >
+                              <Circle className="h-5 w-5 text-gray-400" />
+                              <span className="font-medium text-gray-700 min-w-[20px]">
+                                {key}.
+                              </span>
+                              <span className="text-gray-800 flex-1">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div className="font-medium text-green-900 mb-1">正確答案：{question.correct_answer}</div>
+                      </div>
+
+                      {question.explanation && (
+                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          <h4 className="font-medium text-blue-900 mb-2">解析：</h4>
+                          <p className="text-blue-800 leading-relaxed">
+                            {question.explanation}
                           </p>
                         </div>
+                      )}
 
-                        {question.options && (
-                          <div className="space-y-2">
-                            {Object.entries(question.options).map(([key, value]) => (
-                              <div
-                                key={key}
-                                className="flex items-center space-x-3 p-3 rounded-lg border bg-white border-gray-200"
-                              >
-                                <Circle className="h-5 w-5 text-gray-400" />
-                                <span className="font-medium text-gray-700 min-w-[20px]">
-                                  {key}.
-                                </span>
-                                <span className="text-gray-800 flex-1">{value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                          <div className="font-medium text-green-900 mb-1">正確答案：{question.correct_answer}</div>
-                        </div>
-
-                        {question.explanation && (
-                          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                            <h4 className="font-medium text-blue-900 mb-2">解析：</h4>
-                            <p className="text-blue-800 leading-relaxed">
-                              {question.explanation}
-                            </p>
-                          </div>
-                        )}
-
-                        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-                          {question.tags && question.tags.length > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Tag className="h-3 w-3 text-gray-500" />
-                              <div className="flex gap-1">
-                                {question.tags.map((tag, tagIndex) => (
-                                  <Badge key={tagIndex} variant="outline" className="text-xs">
-                                    {tag}
-                                  </Badge>
-                                ))}
-                              </div>
+                      <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                        {question.tags && question.tags.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Tag className="h-3 w-3 text-gray-500" />
+                            <div className="flex gap-1">
+                              {question.tags.map((tag, tagIndex) => (
+                                <Badge key={tagIndex} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
                             </div>
-                          )}
-                          
-                          {question.source_pdf && (
-                            <Badge variant="secondary" className="text-xs">
-                              來源：{question.source_pdf}
-                            </Badge>
-                          )}
-                          
-                          {question.page_range && (
-                            <Badge variant="secondary" className="text-xs">
-                              頁數：{question.page_range}
-                            </Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+                          </div>
+                        )}
+                        
+                        {question.source_pdf && (
+                          <Badge variant="secondary" className="text-xs">
+                            來源：{question.source_pdf}
+                          </Badge>
+                        )}
+                        
+                        {question.page_range && (
+                          <Badge variant="secondary" className="text-xs">
+                            頁數：{question.page_range}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
       {/* 題目顯示區 */}
-      <div className={displayMode === 'list' ? 'space-y-2' : 'space-y-4'}>
+      <div className="space-y-4">
         {questions.map((question, index) => (
-          <Card key={question.id} className={`border-l-4 border-l-blue-500 ${
-            displayMode === 'list' ? 'hover:shadow-md transition-shadow' : ''
-          }`}>
-            <CardHeader className={displayMode === 'list' ? 'pb-2' : 'pb-3'}>
-              <CardTitle className={`flex items-start justify-between ${
-                displayMode === 'list' ? 'text-sm' : 'text-base'
-              }`}>
+          <Card key={question.id} className="border-l-4 border-l-blue-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-start justify-between">
                 <span className="font-medium text-gray-800">
                   第 {index + 1} 題
                 </span>
@@ -405,108 +389,157 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, par
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className={`p-4 bg-gray-50 rounded-lg ${
-                displayMode === 'list' ? 'p-3' : 'p-4'
-              }`}>
-                <p className={`text-gray-800 leading-relaxed font-medium ${
-                  displayMode === 'list' ? 'text-sm' : ''
-                }`}>
-                  {question.content}
-                </p>
-              </div>
+              {editingQuestionId === question.id ? (
+                // 編輯模式
+                <div className="space-y-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div>
+                    <Label htmlFor="question-content">題目內容</Label>
+                    <Textarea
+                      id="question-content"
+                      value={editingQuestion?.content || ''}
+                      onChange={(e) => updateEditingQuestion('content', e.target.value)}
+                      className="mt-1"
+                      rows={3}
+                    />
+                  </div>
 
-              {question.options && (
-                <div className={displayMode === 'list' ? 'space-y-1' : 'space-y-2'}>
-                  {Object.entries(question.options).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className={`flex items-center space-x-3 rounded-lg border bg-white border-gray-200 ${
-                        displayMode === 'list' ? 'p-2' : 'p-3'
-                      }`}
-                    >
-                      <Circle className="h-5 w-5 text-gray-400" />
-                      <span className="font-medium text-gray-700 min-w-[20px]">
-                        {key}.
-                      </span>
-                      <span className={`text-gray-800 flex-1 ${
-                        displayMode === 'list' ? 'text-sm' : ''
-                      }`}>{value}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                <div className={`font-medium text-green-900 ${
-                  displayMode === 'list' ? 'text-sm' : ''
-                }`}>正確答案：{question.correct_answer}</div>
-              </div>
-
-              {question.explanation && (
-                <div className={`p-4 bg-blue-50 rounded-lg border border-blue-200 ${
-                  displayMode === 'list' ? 'p-3' : 'p-4'
-                }`}>
-                  <h4 className={`font-medium text-blue-900 mb-2 ${
-                    displayMode === 'list' ? 'text-sm mb-1' : ''
-                  }`}>解析：</h4>
-                  <p className={`text-blue-800 leading-relaxed ${
-                    displayMode === 'list' ? 'text-sm' : ''
-                  }`}>
-                    {question.explanation}
-                  </p>
-                </div>
-              )}
-
-              {/* 題目操作按鈕 */}
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                <div className="flex flex-wrap gap-2">
-                  {question.tags && question.tags.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Tag className="h-3 w-3 text-gray-500" />
-                      <div className="flex gap-1">
-                        {question.tags.map((tag, tagIndex) => (
-                          <Badge key={tagIndex} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
+                  <div className="grid grid-cols-2 gap-4">
+                    {editingQuestion?.options && Object.entries(editingQuestion.options).map(([key, value]) => (
+                      <div key={key}>
+                        <Label htmlFor={`option-${key}`}>選項 {key}</Label>
+                        <Input
+                          id={`option-${key}`}
+                          value={value}
+                          onChange={(e) => updateOption(key, e.target.value)}
+                          className="mt-1"
+                        />
                       </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="correct-answer">正確答案</Label>
+                    <Input
+                      id="correct-answer"
+                      value={editingQuestion?.correct_answer || ''}
+                      onChange={(e) => updateEditingQuestion('correct_answer', e.target.value)}
+                      className="mt-1"
+                      placeholder="例如：A"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="explanation">解析</Label>
+                    <Textarea
+                      id="explanation"
+                      value={editingQuestion?.explanation || ''}
+                      onChange={(e) => updateEditingQuestion('explanation', e.target.value)}
+                      className="mt-1"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      onClick={handleConfirmEdit}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      確認修改
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelEdit}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                // 顯示模式
+                <>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-gray-800 leading-relaxed font-medium">
+                      {question.content}
+                    </p>
+                  </div>
+
+                  {question.options && (
+                    <div className="space-y-2">
+                      {Object.entries(question.options).map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="flex items-center space-x-3 p-3 rounded-lg border bg-white border-gray-200"
+                        >
+                          <Circle className="h-5 w-5 text-gray-400" />
+                          <span className="font-medium text-gray-700 min-w-[20px]">
+                            {key}.
+                          </span>
+                          <span className="text-gray-800 flex-1">{value}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
-                  
-                  {question.source_pdf && (
-                    <Badge variant="secondary" className="text-xs">
-                      來源：{question.source_pdf}
-                    </Badge>
-                  )}
-                  
-                  {question.page_range && (
-                    <Badge variant="secondary" className="text-xs">
-                      頁數：{question.page_range}
-                    </Badge>
-                  )}
-                </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEditQuestion(question.id)}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    修改此題
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRegenerateQuestion(question.id)}
-                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                  >
-                    <RotateCcw className="h-4 w-4 mr-1" />
-                    再生此題
-                  </Button>
-                </div>
-              </div>
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="font-medium text-green-900">正確答案：{question.correct_answer}</div>
+                  </div>
+
+                  {question.explanation && (
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h4 className="font-medium text-blue-900 mb-2">解析：</h4>
+                      <p className="text-blue-800 leading-relaxed">
+                        {question.explanation}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 題目操作按鈕 */}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div className="flex flex-wrap gap-2">
+                      {question.tags && question.tags.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Tag className="h-3 w-3 text-gray-500" />
+                          <div className="flex gap-1">
+                            {question.tags.map((tag, tagIndex) => (
+                              <Badge key={tagIndex} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {question.source_pdf && (
+                        <Badge variant="secondary" className="text-xs">
+                          來源：{question.source_pdf}
+                        </Badge>
+                      )}
+                      
+                      {question.page_range && (
+                        <Badge variant="secondary" className="text-xs">
+                          頁數：{question.page_range}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditQuestion(question)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        修改此題
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         ))}

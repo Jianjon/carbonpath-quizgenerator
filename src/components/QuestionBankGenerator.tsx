@@ -63,8 +63,8 @@ interface Parameters {
   questionCount: number;
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
-  weightingConfig: WeightingConfig;
   keywords?: string;
+  weightingConfig: WeightingConfig;
 }
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -389,6 +389,12 @@ ${q.options ? q.options.join('\n') : ''}
     await generateQuestionsWithAI();
     setIsGenerating(false);
   };
+
+  // 處理題目更新
+  const handleQuestionsChange = (updatedQuestions: QuestionData[]) => {
+    setGeneratedQuestions(updatedQuestions);
+  };
+
   return <div className="max-w-full mx-auto p-4">
       <div className="flex gap-6">
         {/* 左側：教材上傳與參數設定 (1/3) */}
@@ -476,6 +482,7 @@ ${q.options ? q.options.join('\n') : ''}
               <QuestionDisplay 
                 questions={generatedQuestions} 
                 parameters={parameters}
+                onQuestionsChange={handleQuestionsChange}
               />
             </CardContent>
           </Card>
