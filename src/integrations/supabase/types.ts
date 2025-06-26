@@ -62,28 +62,37 @@ export type Database = {
       }
       generation_sessions: {
         Row: {
+          auto_saved: boolean | null
           created_at: string
           id: string
           parameters: Json
           question_count: number
           session_name: string | null
           updated_at: string
+          user_agent: string | null
+          user_ip: string | null
         }
         Insert: {
+          auto_saved?: boolean | null
           created_at?: string
           id?: string
           parameters: Json
           question_count?: number
           session_name?: string | null
           updated_at?: string
+          user_agent?: string | null
+          user_ip?: string | null
         }
         Update: {
+          auto_saved?: boolean | null
           created_at?: string
           id?: string
           parameters?: Json
           question_count?: number
           session_name?: string | null
           updated_at?: string
+          user_agent?: string | null
+          user_ip?: string | null
         }
         Relationships: []
       }
@@ -121,6 +130,7 @@ export type Database = {
       }
       question_bank: {
         Row: {
+          auto_generated: boolean | null
           bloom_level: number | null
           chapter_id: string | null
           content: string
@@ -139,8 +149,10 @@ export type Database = {
           source_pdf: string | null
           tags: string[] | null
           updated_at: string
+          user_ip: string | null
         }
         Insert: {
+          auto_generated?: boolean | null
           bloom_level?: number | null
           chapter_id?: string | null
           content: string
@@ -159,8 +171,10 @@ export type Database = {
           source_pdf?: string | null
           tags?: string[] | null
           updated_at?: string
+          user_ip?: string | null
         }
         Update: {
+          auto_generated?: boolean | null
           bloom_level?: number | null
           chapter_id?: string | null
           content?: string
@@ -179,6 +193,7 @@ export type Database = {
           source_pdf?: string | null
           tags?: string[] | null
           updated_at?: string
+          user_ip?: string | null
         }
         Relationships: [
           {
@@ -192,14 +207,64 @@ export type Database = {
             foreignKeyName: "question_bank_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "admin_generation_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
             referencedRelation: "generation_sessions"
             referencedColumns: ["id"]
           },
         ]
       }
+      user_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          last_activity: string
+          session_start: string
+          total_questions: number | null
+          user_agent: string | null
+          user_ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_activity?: string
+          session_start?: string
+          total_questions?: number | null
+          user_agent?: string | null
+          user_ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_activity?: string
+          session_start?: string
+          total_questions?: number | null
+          user_agent?: string | null
+          user_ip?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      admin_generation_summary: {
+        Row: {
+          actual_questions_saved: number | null
+          auto_saved: boolean | null
+          created_at: string | null
+          id: string | null
+          parameters: Json | null
+          question_count: number | null
+          session_name: string | null
+          user_agent: string | null
+          user_ip: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

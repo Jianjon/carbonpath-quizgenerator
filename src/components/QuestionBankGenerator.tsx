@@ -5,9 +5,17 @@ import { QuestionDisplay } from './QuestionDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Brain, FileText, Settings, Zap, Loader2, AlertCircle } from 'lucide-react';
+import { Brain, FileText, Settings, Zap, Loader2, AlertCircle, Menu } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { 
+  SidebarProvider, 
+  Sidebar, 
+  SidebarContent, 
+  SidebarHeader, 
+  SidebarInset,
+  SidebarTrigger
+} from '@/components/ui/sidebar';
 
 interface SampleQuestion {
   id: string;
@@ -100,6 +108,66 @@ export const QuestionBankGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStep, setGenerationStep] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // 檢測是否為手機版
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // 初始化使用者會話
+  useEffect(() => {
+    initializeUserSession();
+  }, []);
+
+  const initializeUserSession = async () => {
+    try {
+      const userIP = await getUserIP();
+      const userAgent = navigator.userAgent;
+      
+      // 創建或更新使用者會話
+      const { data: existingSession, error: fetchError } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .eq('user_ip', userIP)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      if (existingSession) {
+        // 更新最後活動時間
+        await supabase
+          .from('user_sessions')
+          .update({ last_activity: new Date().toISOString() })
+          .eq('id', existingSession.id);
+      } else {
+        // 創建新會話
+        const { data: newSession, error: createError } = await supabase
+          .from('user_sessions')
+          .insert({
+            user_ip: userIP,
+            user_agent: userAgent
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+      }
+    } catch (error) {
+      console.error('初始化使用者會話失敗:', error);
+    }
+  };
 
   // 取得最終使用的難度設定
   const getEffectiveDifficulty = () => {
@@ -390,83 +458,252 @@ ${q.options ? q.options.join('\n') : ''}
     setIsGenerating(false);
   };
 
-  // 處理題目更新
-  const handleQuestionsChange = (updatedQuestions: QuestionData[]) => {
-    setGeneratedQuestions(updatedQuestions);
+  // 修改自動保存功能
+  const saveQuestionsAutomatically = async () => {
+    try {
+      const userIP = await getUserIP();
+      const userAgent = navigator.userAgent;
+      
+      // 創建生成會話
+      const { data: session, error: sessionError } = await supabase
+        .from('generation_sessions')
+        .insert({
+          session_name: `自動保存_${new Date().toISOString().split('T')[0]}_${userIP}`,
+          parameters: parameters || {},
+          question_count: questions.length,
+          user_ip: userIP,
+          user_agent: userAgent,
+          auto_saved: true
+        })
+        .select()
+        .single();
+
+      if (sessionError) throw sessionError;
+      setSessionId(session.id);
+
+      // 保存題目
+      const questionsToSave = questions.map(q => ({
+        content: q.content,
+        options: q.options,
+        correct_answer: q.correct_answer,
+        explanation: q.explanation,
+        question_type: q.question_type,
+        difficulty: q.difficulty,
+        difficulty_label: q.difficulty_label,
+        bloom_level: q.bloom_level,
+        chapter: q.chapter,
+        source_pdf: q.source_pdf,
+        page_range: q.page_range,
+        tags: q.tags,
+        session_id: session.id,
+        auto_generated: true,
+        user_ip: userIP
+      }));
+
+      const { error: questionsError } = await supabase
+        .from('question_bank')
+        .insert(questionsToSave);
+
+      if (questionsError) throw questionsError;
+
+      // 更新使用者會話的題目總數
+      await supabase
+        .from('user_sessions')
+        .update({ 
+          total_questions: questions.length,
+          last_activity: new Date().toISOString()
+        })
+        .eq('user_ip', userIP);
+
+      console.log(`自動保存成功: ${questions.length} 道題目已保存`);
+    } catch (error) {
+      console.error('自動保存失敗:', error);
+    }
   };
 
-  return <div className="max-w-full mx-auto p-4">
+  // 處理題目更新（也要自動保存）
+  const handleQuestionsChange = (updatedQuestions: QuestionData[]) => {
+    setGeneratedQuestions(updatedQuestions);
+    
+    // 當題目被修改時，也要自動更新到資料庫
+    if (sessionId && updatedQuestions.length > 0) {
+      updateQuestionsInDatabase(updatedQuestions);
+    }
+  };
+
+  const updateQuestionsInDatabase = async (updatedQuestions: QuestionData[]) => {
+    try {
+      const userIP = await getUserIP();
+      
+      // 刪除舊的題目
+      await supabase
+        .from('question_bank')
+        .delete()
+        .eq('session_id', sessionId);
+
+      // 插入更新後的題目
+      const questionsToSave = updatedQuestions.map(q => ({
+        content: q.content,
+        options: q.options,
+        correct_answer: q.correct_answer,
+        explanation: q.explanation,
+        question_type: q.question_type,
+        difficulty: q.difficulty,
+        difficulty_label: q.difficulty_label,
+        bloom_level: q.bloom_level,
+        chapter: q.chapter,
+        source_pdf: q.source_pdf,
+        page_range: q.page_range,
+        tags: q.tags,
+        session_id: sessionId,
+        auto_generated: true,
+        user_ip: userIP
+      }));
+
+      await supabase
+        .from('question_bank')
+        .insert(questionsToSave);
+
+      console.log('題目更新已自動保存到資料庫');
+    } catch (error) {
+      console.error('更新題目到資料庫失敗:', error);
+    }
+  };
+
+  // 取得用戶IP位址
+  const getUserIP = async () => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.error('Failed to get IP:', error);
+      return 'unknown';
+    }
+  };
+
+  const SidebarContent = () => (
+    <div className="space-y-4 p-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileText className="h-4 w-4 text-blue-600" />
+            教材上傳
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <PDFUploader 
+            uploadedFile={uploadedFile} 
+            onFileUpload={setUploadedFile} 
+            onUploadComplete={handleUploadComplete}
+            pageRange={parameters.chapter}
+            generatedQuestionsCount={generatedQuestions.length}
+          />
+        </CardContent>
+      </Card>
+
+      <ParameterSettings 
+        parameters={parameters} 
+        onParametersChange={setParameters} 
+        uploadedFile={uploadedFile} 
+      />
+
+      <Card>
+        <CardContent className="pt-4 space-y-3">
+          {/* 生成時間說明 */}
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-amber-800">
+                <p className="font-medium mb-1">生成時間說明</p>
+                <p className="text-xs">題目生成時間依據題數而定：</p>
+                <ul className="mt-1 text-xs space-y-0.5">
+                  <li>• 5-10題：約 30-60 秒</li>
+                  <li>• 11-20題：約 1-2 分鐘</li>
+                  <li>• 21-30題：約 2-3 分鐘</li>
+                  <li>• 31題以上：約 3-5 分鐘</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* 進度顯示 */}
+          {isGenerating && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <span className="text-sm text-gray-600">{generationStep}</span>
+              </div>
+              <Progress value={generationProgress} className="h-2" />
+              <div className="text-xs text-gray-500 text-center">
+                {generationProgress}% 完成
+              </div>
+            </div>
+          )}
+          
+          <Button 
+            onClick={handleGenerate} 
+            disabled={!uploadedFile && !parameters.chapter || isGenerating} 
+            size="lg" 
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            {isGenerating ? '生成中...' : '開始生成題庫'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <Sidebar className="border-r">
+            <SidebarHeader className="border-b p-4">
+              <h2 className="font-semibold text-lg">題庫生成設定</h2>
+            </SidebarHeader>
+            <SidebarContent>
+              <SidebarContent />
+            </SidebarContent>
+          </Sidebar>
+          
+          <SidebarInset className="flex-1">
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+              <SidebarTrigger className="-ml-1" />
+              <h1 className="text-lg font-semibold">生成結果與預覽</h1>
+            </header>
+            
+            <div className="flex-1 p-4">
+              <Card className="h-full">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Brain className="h-4 w-4 text-purple-600" />
+                    題庫預覽
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-full overflow-auto">
+                  <QuestionDisplay 
+                    questions={generatedQuestions} 
+                    parameters={parameters}
+                    onQuestionsChange={handleQuestionsChange}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  // 桌面版保持原有布局
+  return (
+    <div className="max-w-full mx-auto p-4">
       <div className="flex gap-6">
         {/* 左側：教材上傳與參數設定 (1/3) */}
         <div className="w-1/3 space-y-6 overflow-y-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <FileText className="h-5 w-5 text-blue-600" />
-                教材上傳
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 py-[7px] my-0 mx-0 bg-transparent">
-              <PDFUploader 
-                uploadedFile={uploadedFile} 
-                onFileUpload={setUploadedFile} 
-                onUploadComplete={handleUploadComplete}
-                pageRange={parameters.chapter}
-                generatedQuestionsCount={generatedQuestions.length}
-              />
-            </CardContent>
-          </Card>
-
-          <ParameterSettings 
-            parameters={parameters} 
-            onParametersChange={setParameters} 
-            uploadedFile={uploadedFile} 
-          />
-
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              {/* 生成時間說明 */}
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-                  <div className="text-sm text-amber-800">
-                    <p className="font-medium mb-1">生成時間說明</p>
-                    <p>題目生成時間會依據題數而有所不同：</p>
-                    <ul className="mt-1 text-xs space-y-0.5">
-                      <li>• 5-10題：約需 30-60 秒</li>
-                      <li>• 11-20題：約需 1-2 分鐘</li>
-                      <li>• 21-30題：約需 2-3 分鐘</li>
-                      <li>• 31題以上：約需 3-5 分鐘</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* 進度顯示 */}
-              {isGenerating && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                    <span className="text-sm text-gray-600">{generationStep}</span>
-                  </div>
-                  <Progress value={generationProgress} className="h-2" />
-                  <div className="text-xs text-gray-500 text-center">
-                    {generationProgress}% 完成
-                  </div>
-                </div>
-              )}
-              
-              <Button 
-                onClick={handleGenerate} 
-                disabled={!uploadedFile && !parameters.chapter || isGenerating} 
-                size="lg" 
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-              >
-                <Zap className="h-5 w-5 mr-2" />
-                {isGenerating ? '生成中...' : '開始生成題庫'}
-              </Button>
-            </CardContent>
-          </Card>
+          <SidebarContent />
         </div>
 
         {/* 右側：生成結果與預覽 (2/3) */}
@@ -488,5 +725,6 @@ ${q.options ? q.options.join('\n') : ''}
           </Card>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 };
