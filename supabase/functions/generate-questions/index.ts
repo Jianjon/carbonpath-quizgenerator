@@ -15,25 +15,36 @@ serve(async (req) => {
   }
 
   try {
-    const { systemPrompt, userPrompt, model = 'gpt-4o' } = await req.json();
+    const { systemPrompt, userPrompt, pdfContent, model = 'gpt-4o' } = await req.json();
 
-    console.log('🔥 PDF內容深度分析出題請求');
+    console.log('🔥 基於PDF實際內容的題目生成請求');
     console.log('模型:', model);
-    console.log('系統提示長度:', systemPrompt?.length || 0);
-    console.log('用戶提示預覽:', userPrompt?.substring(0, 100) + '...');
+    console.log('PDF內容長度:', pdfContent?.length || 0);
+    console.log('用戶提示:', userPrompt);
 
     if (!openAIApiKey) {
       console.error('❌ OpenAI API 金鑰未設定');
       throw new Error('OpenAI API 金鑰未配置');
     }
 
-    const questionCount = parseInt(userPrompt.match(/(\d+)\s*道/)?.[1] || '5');
-    console.log('📊 預計生成題目數量:', questionCount);
-    
-    const maxTokens = Math.min(12000, questionCount * 800);
-    console.log('🔧 設定最大tokens:', maxTokens);
+    if (!pdfContent || pdfContent.length < 100) {
+      console.error('❌ PDF內容不足');
+      throw new Error('PDF內容不足，無法生成題目。請確保PDF內容已正確提取。');
+    }
 
-    // 使用更直接的 API 呼叫，移除複雜的錯誤處理邏輯
+    // 構建完整的內容分析提示
+    const fullSystemPrompt = `${systemPrompt}
+
+**重要：以下是用戶指定的PDF頁面實際內容：**
+${pdfContent}
+
+**嚴格要求：**
+1. 你必須只能基於上述PDF內容來生成題目
+2. 不得使用PDF內容之外的任何知識
+3. 題目和選項必須直接來自PDF內容
+4. 解析必須引用PDF中的具體內容
+5. 如果PDF內容不足以生成指定數量的題目，請生成能夠生成的數量並說明原因`;
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -43,14 +54,12 @@ serve(async (req) => {
       body: JSON.stringify({
         model: model,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: fullSystemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3,
-        max_tokens: maxTokens,
-        top_p: 0.95,
-        frequency_penalty: 0,
-        presence_penalty: 0,
+        temperature: 0.1,
+        max_tokens: 8000,
+        top_p: 0.9,
       }),
     });
 
@@ -70,9 +79,9 @@ serve(async (req) => {
 
     let generatedText = data.choices[0].message.content.trim();
     console.log('📝 生成內容長度:', generatedText.length);
-    console.log('📝 生成內容預覽:', generatedText.substring(0, 200));
+    console.log('📝 生成內容預覽:', generatedText.substring(0, 300));
 
-    // 簡化 JSON 處理
+    // 清理和提取JSON
     generatedText = cleanAndExtractJSON(generatedText);
 
     let questions;
@@ -83,7 +92,7 @@ serve(async (req) => {
       console.error('❌ JSON 解析失敗:', parseError.message);
       console.error('❌ 原始內容:', generatedText.substring(0, 500));
       
-      // 嘗試基本修復
+      // 嘗試修復JSON
       const repairedJson = repairJSON(generatedText);
       try {
         questions = JSON.parse(repairedJson);
@@ -119,12 +128,12 @@ serve(async (req) => {
 });
 
 function cleanAndExtractJSON(text: string): string {
-  // 移除 markdown 標記
+  // 移除 markdown 標記和多餘文字
   text = text.replace(/```json\s*/gi, '');
   text = text.replace(/```\s*/g, '');
   text = text.replace(/`{1,3}/g, '');
   
-  // 尋找 JSON 結構
+  // 尋找完整的JSON結構
   let jsonStart = text.indexOf('[');
   let jsonEnd = text.lastIndexOf(']');
   
@@ -141,9 +150,9 @@ function cleanAndExtractJSON(text: string): string {
 }
 
 function repairJSON(jsonString: string): string {
-  let repaired = jsonString;
+  let repaired = jsonString.trim();
   
-  // 修復結尾缺少括號
+  // 修復常見的JSON問題
   if (repaired.startsWith('[') && !repaired.endsWith(']')) {
     repaired += ']';
   }
