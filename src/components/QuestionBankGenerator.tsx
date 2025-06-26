@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Brain, FileText, Settings, Zap, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+
 interface SampleQuestion {
   id: string;
   question: string;
@@ -174,18 +175,23 @@ export const QuestionBankGenerator = () => {
     const effectiveDifficulty = getEffectiveDifficulty();
     const effectiveCognitive = parameters.weightingConfig.cognitiveDistribution;
     const hasAdvancedSettings = parameters.keywords || parameters.sampleQuestions.length > 0;
+    
     setGenerationProgress(0);
     setGenerationStep('準備生成參數...');
+    
     let chapterPrompt = '';
     if (parameters.chapterType === 'pages' && parameters.chapter) {
       chapterPrompt = `請針對 PDF 文件的第 ${parameters.chapter} 頁內容出題`;
     } else if (parameters.chapter) {
       chapterPrompt = `請針對「${parameters.chapter}」這個主題出題`;
     }
+    
     const keywordsPrompt = parameters.keywords ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}` : '';
     const stylePrompt = getQuestionStylePrompt(parameters.questionStyle);
+    
     setGenerationProgress(20);
     setGenerationStep('構建提示內容...');
+    
     let advancedSettingsPrompt = '';
     if (hasAdvancedSettings) {
       advancedSettingsPrompt = `
@@ -194,9 +200,8 @@ export const QuestionBankGenerator = () => {
 - 關鍵字聚焦：${parameters.keywords || '無'}
 - 樣題參考數量：${parameters.sampleQuestions.length} 個`;
     }
-    const systemPrompt = `你是一位專業的教育測驗專家。
 
-**重要：你只能回傳純 JSON 陣列格式，絕對不能包含任何其他內容**
+    const systemPrompt = `你是一位專業的教育測驗專家。請生成教育測驗題目，回傳格式必須是純 JSON 陣列。
 
 要求：
 ${chapterPrompt}${keywordsPrompt}
@@ -204,27 +209,7 @@ ${chapterPrompt}${keywordsPrompt}
 - 題型：選擇題（四選一）
 - 題目風格：${stylePrompt}
 
-難度分佈：
-- 簡單：${effectiveDifficulty.easy}%
-- 中等：${effectiveDifficulty.medium}%
-- 困難：${effectiveDifficulty.hard}%
-
-認知層次分佈：
-- 記憶：${effectiveCognitive.remember}%
-- 理解：${effectiveCognitive.understand}%
-- 應用：${effectiveCognitive.apply}%
-- 分析：${effectiveCognitive.analyze}%${advancedSettingsPrompt}
-
-${parameters.sampleQuestions.length > 0 ? `
-參考樣題：
-${parameters.sampleQuestions.map((q, i) => `
-${i + 1}. ${q.question}
-${q.options ? q.options.join('\n') : ''}
-答案：${q.answer}
-`).join('\n')}
-` : ''}
-
-**回傳格式（只能是這個格式，不能有任何其他文字）：**
+請嚴格按照以下 JSON 格式回傳，不要包含任何其他文字：
 
 [
   {
@@ -242,32 +227,48 @@ ${q.options ? q.options.join('\n') : ''}
     "page_range": "${parameters.chapterType === 'pages' ? parameters.chapter : ''}",
     "tags": ["關鍵字1", "關鍵字2"]
   }
-]
+]${advancedSettingsPrompt}
 
-記住：只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
+${parameters.sampleQuestions.length > 0 ? `
+參考樣題：
+${parameters.sampleQuestions.map((q, i) => `
+${i + 1}. ${q.question}
+${q.options ? q.options.join('\n') : ''}
+答案：${q.answer}
+`).join('\n')}
+` : ''}
+
+重要：只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
+
     try {
       setGenerationProgress(40);
       setGenerationStep('呼叫 AI 生成服務...');
       console.log('開始呼叫 AI 生成題目...');
+      
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請嚴格按照上述 JSON 格式生成 ${parameters.questionCount} 道選擇題。只回傳 JSON 陣列，不要有任何其他內容。${uploadedFile?.name ? `\n參考 PDF：${uploadedFile.name}` : chapterPrompt}`,
-          model: 'gpt-4o'
+          userPrompt: `請嚴格按照上述 JSON 格式生成 ${parameters.questionCount} 道選擇題。只回傳 JSON 陣列，不要有任何其他內容。`,
+          model: 'gpt-4o-mini'
         }
       });
+
       setGenerationProgress(70);
       setGenerationStep('處理 AI 回應...');
       console.log('AI 回應:', response);
+
       if (response.error) {
         console.error('Supabase function error:', response.error);
         throw new Error(response.error.message || '呼叫 AI 服務失敗');
       }
+
       if (!response.data?.generatedText) {
         throw new Error('AI 回應格式錯誤：缺少生成內容');
       }
+
       setGenerationProgress(85);
       setGenerationStep('解析生成的題目...');
+
       let questions;
       try {
         questions = JSON.parse(response.data.generatedText);
@@ -277,23 +278,37 @@ ${q.options ? q.options.join('\n') : ''}
         console.error('收到的回應:', response.data.generatedText?.substring(0, 500));
         throw new Error(`無法解析 AI 生成的題目：${parseError.message}`);
       }
+
       if (!Array.isArray(questions)) {
         questions = [questions];
       }
+
       setGenerationProgress(95);
       setGenerationStep('驗證題目格式...');
-      const validQuestions = questions.filter(q => q && typeof q === 'object' && q.content && q.correct_answer && q.explanation && q.question_type);
+
+      const validQuestions = questions.filter(q => 
+        q && 
+        typeof q === 'object' && 
+        q.content && 
+        q.correct_answer && 
+        q.explanation && 
+        q.question_type
+      );
+
       if (validQuestions.length === 0) {
         throw new Error('生成的題目格式不完整，請重新嘗試');
       }
+
       setGenerationProgress(100);
       setGenerationStep('生成完成！');
       console.log('有效題目數量:', validQuestions.length);
+      
       setGeneratedQuestions(validQuestions);
       toast({
         title: "生成成功",
         description: `成功生成 ${validQuestions.length} 道選擇題`
       });
+
       setTimeout(() => {
         setGenerationProgress(0);
         setGenerationStep('');
@@ -334,16 +349,25 @@ ${q.options ? q.options.join('\n') : ''}
               </CardTitle>
             </CardHeader>
             <CardContent className="px-0 py-[7px] my-0 mx-0 bg-transparent">
-              <PDFUploader uploadedFile={uploadedFile} onFileUpload={setUploadedFile} onUploadComplete={handleUploadComplete} />
+              <PDFUploader 
+                uploadedFile={uploadedFile} 
+                onFileUpload={setUploadedFile} 
+                onUploadComplete={handleUploadComplete} 
+              />
             </CardContent>
           </Card>
 
-          <ParameterSettings parameters={parameters} onParametersChange={setParameters} uploadedFile={uploadedFile} />
+          <ParameterSettings 
+            parameters={parameters} 
+            onParametersChange={setParameters} 
+            uploadedFile={uploadedFile} 
+          />
 
           <Card>
             <CardContent className="pt-6 space-y-4">
               {/* 進度顯示 */}
-              {isGenerating && <div className="space-y-3">
+              {isGenerating && (
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                     <span className="text-sm text-gray-600">{generationStep}</span>
@@ -352,9 +376,15 @@ ${q.options ? q.options.join('\n') : ''}
                   <div className="text-xs text-gray-500 text-center">
                     {generationProgress}% 完成
                   </div>
-                </div>}
+                </div>
+              )}
               
-              <Button onClick={handleGenerate} disabled={!uploadedFile && !parameters.chapter || isGenerating} size="lg" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+              <Button 
+                onClick={handleGenerate} 
+                disabled={!uploadedFile && !parameters.chapter || isGenerating} 
+                size="lg" 
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              >
                 <Zap className="h-5 w-5 mr-2" />
                 {isGenerating ? '生成中...' : '開始生成題庫'}
               </Button>
@@ -372,7 +402,10 @@ ${q.options ? q.options.join('\n') : ''}
               </CardTitle>
             </CardHeader>
             <CardContent className="overflow-y-auto">
-              <QuestionDisplay questions={generatedQuestions} />
+              <QuestionDisplay 
+                questions={generatedQuestions} 
+                parameters={parameters}
+              />
             </CardContent>
           </Card>
         </div>

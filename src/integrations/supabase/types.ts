@@ -60,6 +60,33 @@ export type Database = {
         }
         Relationships: []
       }
+      generation_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          parameters: Json
+          question_count: number
+          session_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          parameters: Json
+          question_count?: number
+          session_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          parameters?: Json
+          question_count?: number
+          session_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       learning_goals: {
         Row: {
           chapter_id: string | null
@@ -108,6 +135,7 @@ export type Database = {
           options: Json | null
           page_range: string | null
           question_type: string
+          session_id: string | null
           source_pdf: string | null
           tags: string[] | null
           updated_at: string
@@ -127,6 +155,7 @@ export type Database = {
           options?: Json | null
           page_range?: string | null
           question_type: string
+          session_id?: string | null
           source_pdf?: string | null
           tags?: string[] | null
           updated_at?: string
@@ -146,6 +175,7 @@ export type Database = {
           options?: Json | null
           page_range?: string | null
           question_type?: string
+          session_id?: string | null
           source_pdf?: string | null
           tags?: string[] | null
           updated_at?: string
@@ -156,6 +186,13 @@ export type Database = {
             columns: ["chapter_id"]
             isOneToOne: false
             referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "generation_sessions"
             referencedColumns: ["id"]
           },
         ]

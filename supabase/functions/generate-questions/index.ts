@@ -22,13 +22,6 @@ serve(async (req) => {
     console.log('System prompt length:', systemPrompt?.length || 0);
     console.log('User prompt:', userPrompt?.substring(0, 200) + '...');
 
-    // 改用更溫和的 system prompt，避免觸發安全機制
-    const improvedSystemPrompt = `你是一位專業的教育專家，專門協助教師製作教學題目。
-
-請按照以下格式生成教育測驗題目，回傳格式必須是純 JSON 陣列：
-
-${systemPrompt}`;
-
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -38,12 +31,11 @@ ${systemPrompt}`;
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: improvedSystemPrompt },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
         max_tokens: 4000,
-        response_format: { type: "json_object" }  // 強制 JSON 格式
       }),
     });
 
@@ -55,7 +47,7 @@ ${systemPrompt}`;
 
     const data = await response.json();
     console.log('OpenAI response status:', response.status);
-    console.log('OpenAI response data:', data);
+    console.log('OpenAI response data:', JSON.stringify(data).substring(0, 500));
     
     if (!data.choices?.[0]?.message?.content) {
       throw new Error('OpenAI 回應格式異常：缺少內容');
@@ -64,82 +56,34 @@ ${systemPrompt}`;
     let generatedText = data.choices[0].message.content.trim();
     console.log('Generated text preview:', generatedText.substring(0, 300));
 
-    // 如果回應包含拒絕內容，提供替代方案
-    if (generatedText.includes('抱歉') || generatedText.includes('無法') || generatedText.includes('不能')) {
-      console.log('AI refused request, using fallback');
-      
-      // 使用更簡單的 fallback prompt
-      const fallbackResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            { 
-              role: 'system', 
-              content: `你是教育專家，請生成教學題目。回傳 JSON 陣列格式，每個題目包含：
-              - id: 題目編號
-              - content: 題目內容  
-              - options: {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"}
-              - correct_answer: 正確答案
-              - explanation: 解析
-              - question_type: "choice"
-              - difficulty: 0.5
-              - difficulty_label: "中"
-              - bloom_level: 2
-              - chapter: "學習主題"
-              - tags: ["關鍵字"]`
-            },
-            { 
-              role: 'user', 
-              content: `請生成 5 道基礎選擇題，主題：基本概念。只回傳 JSON 格式，不要其他文字。`
-            }
-          ],
-          temperature: 0.5,
-          max_tokens: 3000
-        }),
-      });
-
-      if (fallbackResponse.ok) {
-        const fallbackData = await fallbackResponse.json();
-        generatedText = fallbackData.choices[0].message.content.trim();
-        console.log('Fallback response received');
-      }
-    }
-
-    // 清理和解析 JSON
+    // 清理 Markdown 格式
     generatedText = generatedText.replace(/```json\s*/gi, '');
     generatedText = generatedText.replace(/```\s*/g, '');
     generatedText = generatedText.replace(/`{1,3}/g, '');
 
-    // 尋找 JSON 陣列
+    // 尋找 JSON 開始和結束
     let jsonStart = generatedText.indexOf('[');
     let jsonEnd = generatedText.lastIndexOf(']');
     
     if (jsonStart === -1 || jsonEnd === -1) {
+      // 嘗試找物件格式
       jsonStart = generatedText.indexOf('{');
       jsonEnd = generatedText.lastIndexOf('}');
       
-      if (jsonStart === -1 || jsonEnd === -1) {
-        throw new Error('回應中找不到有效的 JSON 格式');
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        const jsonContent = generatedText.substring(jsonStart, jsonEnd + 1);
+        try {
+          const singleQuestion = JSON.parse(jsonContent);
+          return new Response(JSON.stringify({ generatedText: JSON.stringify([singleQuestion]) }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (e) {
+          console.error('Failed to parse single object:', e);
+        }
       }
-    }
-
-    const cleanedText = generatedText.substring(jsonStart, jsonEnd + 1);
-    console.log('Cleaned JSON text:', cleanedText.substring(0, 500));
-
-    let questions;
-    try {
-      questions = JSON.parse(cleanedText);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Failed content:', cleanedText.substring(0, 1000));
       
-      // 最後的 fallback：返回示例題目
-      questions = [{
+      // 如果找不到有效 JSON，返回預設題目
+      const fallbackQuestions = [{
         id: "1",
         content: "以下何者為正確的學習方法？",
         options: {
@@ -157,6 +101,62 @@ ${systemPrompt}`;
         chapter: "學習方法",
         tags: ["學習", "方法"]
       }];
+      
+      console.log('Using fallback questions');
+      return new Response(JSON.stringify({ generatedText: JSON.stringify(fallbackQuestions) }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const cleanedText = generatedText.substring(jsonStart, jsonEnd + 1);
+    console.log('Cleaned JSON text:', cleanedText.substring(0, 500));
+
+    let questions;
+    try {
+      questions = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Failed content:', cleanedText);
+      
+      // 嘗試修復常見的 JSON 錯誤
+      let fixedText = cleanedText;
+      
+      // 修復尾隨逗號
+      fixedText = fixedText.replace(/,(\s*[}\]])/g, '$1');
+      
+      // 修復未閉合的引號
+      fixedText = fixedText.replace(/([{,]\s*"[^"]*):([^",}\]]*[^",}\]\s])\s*([,}\]])/g, '$1:"$2"$3');
+      
+      try {
+        questions = JSON.parse(fixedText);
+        console.log('Successfully parsed after fixing');
+      } catch (secondError) {
+        console.error('Still failed after fixing:', secondError);
+        
+        // 最終回退
+        const fallbackQuestions = [{
+          id: "1",
+          content: "這是一個示例題目，請重新生成。",
+          options: {
+            "A": "選項A",
+            "B": "選項B", 
+            "C": "選項C",
+            "D": "選項D"
+          },
+          correct_answer: "A",
+          explanation: "這是示例解析，請重新生成題目。",
+          question_type: "choice",
+          difficulty: 0.5,
+          difficulty_label: "中",
+          bloom_level: 2,
+          chapter: "示例章節",
+          tags: ["示例"]
+        }];
+        
+        return new Response(JSON.stringify({ generatedText: JSON.stringify(fallbackQuestions) }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // 確保是陣列格式
@@ -168,20 +168,28 @@ ${systemPrompt}`;
       }
     }
 
-    // 驗證題目格式
+    // 驗證和清理題目
     const validQuestions = questions.filter(q => {
-      const isValid = q && 
+      return q && 
              typeof q === 'object' && 
              q.content && 
              q.correct_answer && 
              q.explanation;
-      
-      if (!isValid) {
-        console.log('Invalid question filtered out:', q);
-      }
-      
-      return isValid;
-    });
+    }).map((q, index) => ({
+      id: q.id || (index + 1).toString(),
+      content: q.content,
+      options: q.options || {},
+      correct_answer: q.correct_answer,
+      explanation: q.explanation,
+      question_type: q.question_type || 'choice',
+      difficulty: q.difficulty || 0.5,
+      difficulty_label: q.difficulty_label || '中',
+      bloom_level: q.bloom_level || 2,
+      chapter: q.chapter || '未分類',
+      source_pdf: q.source_pdf || '',
+      page_range: q.page_range || '',
+      tags: q.tags || []
+    }));
 
     if (validQuestions.length === 0) {
       throw new Error('沒有生成有效的題目，請重新嘗試');
