@@ -1,22 +1,15 @@
-
 import React from 'react';
 import { BookOpen, Settings } from 'lucide-react';
-
 export const Header = () => {
-  return (
-    <header className="bg-white/80 backdrop-blur-sm border-b border-blue-100 sticky top-0 z-50">
+  return <header className="bg-white/80 backdrop-blur-sm border-b border-blue-100 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
-              <img 
-                src="/lovable-uploads/f702def8-7da8-4e76-aeb5-8178cd1434d0.png" 
-                alt="CarbonPath Logo" 
-                className="h-8 w-auto"
-              />
+              <img src="/lovable-uploads/f702def8-7da8-4e76-aeb5-8178cd1434d0.png" alt="CarbonPath Logo" className="h-8 w-auto object-fill" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">AI 題庫生成器</h1>
+              
               <p className="text-sm text-gray-600">專為講師設計的智能出題工具</p>
             </div>
           </div>
@@ -26,6 +19,5 @@ export const Header = () => {
           </button>
         </div>
       </div>
-    </header>
-  );
+    </header>;
 };
