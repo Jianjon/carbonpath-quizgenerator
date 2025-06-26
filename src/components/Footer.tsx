@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Info, AlertTriangle, Mail, User } from 'lucide-react';
@@ -58,9 +59,9 @@ export const Footer = () => {
               <div className="text-center">
                 <div className="bg-white p-6 rounded-lg shadow-sm inline-block mb-2">
                   <img 
-                    src="/lovable-uploads/23b712ea-8c5e-4a2c-80c1-3bf8875002b5.png" 
+                    src="/lovable-uploads/b2c9161e-c5d5-4796-b48e-a38b02429785.png" 
                     alt="聯絡方式 QR Code" 
-                    className="w-40 h-40 object-contain"
+                    className="object-contain"
                   />
                 </div>
               </div>
