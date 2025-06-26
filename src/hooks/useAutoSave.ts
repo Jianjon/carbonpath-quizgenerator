@@ -64,10 +64,24 @@ export const useAutoSave = (
       console.log('- 解析:', q.explanation ? '✅' : '❌', q.explanation?.substring(0, 50) + '...');
       console.log('- 題目類型:', q.question_type ? '✅' : '❌', q.question_type);
       console.log('- 難度:', q.difficulty !== undefined ? '✅' : '❌', q.difficulty);
+      console.log('- 難度標籤:', q.difficulty_label ? '✅' : '❌', q.difficulty_label);
       console.log('- 布魯姆層次:', q.bloom_level !== undefined ? '✅' : '❌', q.bloom_level);
       console.log('- 章節:', q.chapter ? '✅' : '❌', q.chapter);
       console.log('---');
     });
+  };
+
+  // 修正難度標籤格式
+  const normalizeDifficultyLabel = (label: string): string => {
+    console.log('🔧 DEBUG: 原始難度標籤:', label);
+    
+    // 將各種可能的難度標籤統一為資料庫接受的格式
+    const normalizedLabel = label?.toLowerCase().includes('易') || label?.toLowerCase().includes('easy') ? '易' :
+                           label?.toLowerCase().includes('中') || label?.toLowerCase().includes('medium') ? '中' :
+                           label?.toLowerCase().includes('難') || label?.toLowerCase().includes('hard') ? '難' : '中';
+    
+    console.log('🔧 DEBUG: 正規化後難度標籤:', normalizedLabel);
+    return normalizedLabel;
   };
 
   // 自動保存完整的題目內容到資料庫
@@ -133,9 +147,9 @@ export const useAutoSave = (
             options: q.options, // 保存為 JSONB 格式
             correct_answer: q.correct_answer,
             explanation: q.explanation,
-            question_type: q.question_type,
+            question_type: q.question_type === 'choice' ? 'choice' : q.question_type,
             difficulty: q.difficulty,
-            difficulty_label: q.difficulty_label,
+            difficulty_label: normalizeDifficultyLabel(q.difficulty_label), // 修正難度標籤
             bloom_level: q.bloom_level,
             source_pdf: q.source_pdf || parameters.chapter,
             page_range: q.page_range || parameters.chapter,
@@ -164,6 +178,16 @@ export const useAutoSave = (
           console.error('- 錯誤訊息:', questionsError.message);
           console.error('- 錯誤詳情:', questionsError.details);
           console.error('- 嘗試插入的資料樣本:', JSON.stringify(questionsToSave[0], null, 2));
+          
+          // 特別處理約束錯誤
+          if (questionsError.code === '23514') {
+            console.error('⚠️ DEBUG: 檢查約束錯誤 - 可能是 difficulty_label 格式問題');
+            console.error('- 檢查所有題目的 difficulty_label:');
+            questionsToSave.forEach((q, i) => {
+              console.error(`  題目 ${i + 1}: "${q.difficulty_label}"`);
+            });
+          }
+          
           throw questionsError;
         }
 
@@ -195,8 +219,11 @@ export const useAutoSave = (
 
       console.log('🎉 DEBUG: 題目保存流程完全完成！');
       
-      // 驗證保存結果
-      await verifyDataInDatabase(sessionId || session.id);
+      // 驗證保存結果 - 修正這裡的錯誤
+      const currentSessionId = sessionId || session?.id;
+      if (currentSessionId) {
+        await verifyDataInDatabase(currentSessionId);
+      }
 
     } catch (error) {
       console.error('❌ DEBUG: 保存題目到資料庫完全失敗:', error);
@@ -262,9 +289,9 @@ export const useAutoSave = (
         options: q.options, // 確保選項被完整保存
         correct_answer: q.correct_answer,
         explanation: q.explanation,
-        question_type: q.question_type,
+        question_type: q.question_type === 'choice' ? 'choice' : q.question_type,
         difficulty: q.difficulty,
-        difficulty_label: q.difficulty_label,
+        difficulty_label: normalizeDifficultyLabel(q.difficulty_label), // 修正難度標籤
         bloom_level: q.bloom_level,
         source_pdf: q.source_pdf || '',
         page_range: q.page_range || '',
