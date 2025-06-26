@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
@@ -327,7 +328,7 @@ ${q.options ? q.options.join('\n') : ''}
 
   return (
     <div className="max-w-full mx-auto">
-      <div className="flex gap-6 h-[calc(100vh-12rem)]">
+      <div className="flex gap-6 min-h-screen">
         {/* 左側：教材上傳與參數設定 (1/3) */}
         <div className="w-1/3 space-y-6 overflow-y-auto pr-4">
           <Card>
@@ -383,14 +384,14 @@ ${q.options ? q.options.join('\n') : ''}
 
         {/* 右側：生成結果與預覽 (2/3) */}
         <div className="w-2/3">
-          <Card className="h-full">
+          <Card className="min-h-screen">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Brain className="h-5 w-5 text-purple-600" />
                 生成結果與預覽
               </CardTitle>
             </CardHeader>
-            <CardContent className="h-[calc(100%-4rem)] overflow-y-auto">
+            <CardContent className="overflow-y-auto">
               <QuestionDisplay questions={generatedQuestions} />
             </CardContent>
           </Card>

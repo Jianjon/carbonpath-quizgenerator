@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -9,6 +10,7 @@ import { ChevronDown, Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { WeightingSystem } from './WeightingSystem';
 import { PDFOutlineSelector } from './PDFOutlineSelector';
+
 interface SampleQuestion {
   id: string;
   question: string;
@@ -149,105 +151,104 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* 第一行：出題範圍設定 */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="chapterType" className="text-sm font-medium text-gray-700">
-                出題範圍類型
-              </Label>
-              <Select value={parameters.chapterType} onValueChange={(value: ChapterType) => updateParameter('chapterType', value)}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="選擇範圍類型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="topic">主題範圍</SelectItem>
-                  <SelectItem value="pages">PDF 頁數</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="chapter" className="text-sm font-medium text-gray-700">
-                {parameters.chapterType === 'pages' ? 'PDF 頁數範圍' : '主題或章節名稱'}
-              </Label>
-              <Input 
-                id="chapter" 
-                className="mt-1"
-                placeholder={parameters.chapterType === 'pages' ? "例如：1-5, 10, 15-20" : "例如：第一章 - 基礎概念"} 
-                value={parameters.chapter} 
-                onChange={e => updateParameter('chapter', e.target.value)} 
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {parameters.chapterType === 'pages' 
-                  ? "指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍" 
-                  : "描述出題的主題範圍，這將作為 AI 生成題目的重要參考"
-                }
-              </p>
-            </div>
+          {/* 出題範圍類型 */}
+          <div>
+            <Label htmlFor="chapterType" className="text-sm font-medium text-gray-700">
+              出題範圍類型
+            </Label>
+            <Select value={parameters.chapterType} onValueChange={(value: ChapterType) => updateParameter('chapterType', value)}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="選擇範圍類型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="topic">主題範圍</SelectItem>
+                <SelectItem value="pages">PDF 頁數</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* 第二行：難度與題目數設定 */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="difficulty" className="text-sm font-medium text-gray-700">
-                基本難度等級
-                {isAdvancedDifficultyEnabled() && (
-                  <span className="text-xs text-amber-600 ml-2 flex items-center gap-1">
-                    <Info className="h-3 w-3" />
-                    (進階設定已啟用)
-                  </span>
-                )}
-              </Label>
-              <Select 
-                value={parameters.difficulty} 
-                onValueChange={value => updateParameter('difficulty', value)} 
-                disabled={isAdvancedDifficultyEnabled()}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="選擇難度" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="easy">簡單</SelectItem>
-                  <SelectItem value="medium">中等</SelectItem>
-                  <SelectItem value="hard">困難</SelectItem>
-                  <SelectItem value="expert">專家</SelectItem>
-                </SelectContent>
-              </Select>
-              {isAdvancedDifficultyEnabled() && (
-                <p className="text-xs text-amber-600 mt-1">
-                  進階設定中的難度分佈將覆蓋此基本設定
-                </p>
-              )}
-              {!isAdvancedDifficultyEnabled() && (
-                <p className="text-xs text-gray-500 mt-1">
-                  若未使用進階設定，將套用此基本難度等級
-                </p>
-              )}
-            </div>
+          {/* 主題或章節名稱 - 使用 Textarea 增加高度 */}
+          <div>
+            <Label htmlFor="chapter" className="text-sm font-medium text-gray-700">
+              {parameters.chapterType === 'pages' ? 'PDF 頁數範圍' : '主題或章節名稱'}
+            </Label>
+            <Textarea 
+              id="chapter" 
+              className="mt-1 min-h-[80px]"
+              placeholder={parameters.chapterType === 'pages' ? "例如：1-5, 10, 15-20" : "例如：第一章 - 基礎概念"} 
+              value={parameters.chapter} 
+              onChange={e => updateParameter('chapter', e.target.value)} 
+              rows={3}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {parameters.chapterType === 'pages' 
+                ? "指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍" 
+                : "描述出題的主題範圍，這將作為 AI 生成題目的重要參考"
+              }
+            </p>
+          </div>
 
-            <div>
-              <Label className="text-sm font-medium text-gray-700">
-                題目數量：{parameters.questionCount} 題
-              </Label>
-              <div className="mt-2">
-                <Slider 
-                  value={[parameters.questionCount]} 
-                  onValueChange={value => updateQuestionCount(value[0])} 
-                  max={50} 
-                  min={5} 
-                  step={5} 
-                  className="w-full" 
-                />
-              </div>
-              <div className="text-xs text-gray-500 mt-2 space-y-1">
-                <div>難度分佈總計：{getDifficultyTotal()} 題</div>
-                <div>認知層次總計：{getCognitiveTotal()} 題</div>
-                {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && (
-                  <div className="text-amber-600 font-medium">
-                    ⚠️ 總題數不一致，請調整進階設定中的百分比
-                  </div>
-                )}
-              </div>
+          {/* 基本難度等級 */}
+          <div>
+            <Label htmlFor="difficulty" className="text-sm font-medium text-gray-700">
+              基本難度等級
+              {isAdvancedDifficultyEnabled() && (
+                <span className="text-xs text-amber-600 ml-2 flex items-center gap-1">
+                  <Info className="h-3 w-3" />
+                  (進階設定已啟用)
+                </span>
+              )}
+            </Label>
+            <Select 
+              value={parameters.difficulty} 
+              onValueChange={value => updateParameter('difficulty', value)} 
+              disabled={isAdvancedDifficultyEnabled()}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="選擇難度" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="easy">簡單</SelectItem>
+                <SelectItem value="medium">中等</SelectItem>
+                <SelectItem value="hard">困難</SelectItem>
+                <SelectItem value="expert">專家</SelectItem>
+              </SelectContent>
+            </Select>
+            {isAdvancedDifficultyEnabled() && (
+              <p className="text-xs text-amber-600 mt-1">
+                進階設定中的難度分佈將覆蓋此基本設定
+              </p>
+            )}
+            {!isAdvancedDifficultyEnabled() && (
+              <p className="text-xs text-gray-500 mt-1">
+                若未使用進階設定，將套用此基本難度等級
+              </p>
+            )}
+          </div>
+
+          {/* 題目數量 */}
+          <div>
+            <Label className="text-sm font-medium text-gray-700">
+              題目數量：{parameters.questionCount} 題
+            </Label>
+            <div className="mt-2">
+              <Slider 
+                value={[parameters.questionCount]} 
+                onValueChange={value => updateQuestionCount(value[0])} 
+                max={50} 
+                min={5} 
+                step={5} 
+                className="w-full" 
+              />
+            </div>
+            <div className="text-xs text-gray-500 mt-2 space-y-1">
+              <div>難度分佈總計：{getDifficultyTotal()} 題</div>
+              <div>認知層次總計：{getCognitiveTotal()} 題</div>
+              {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && (
+                <div className="text-amber-600 font-medium">
+                  ⚠️ 總題數不一致，請調整進階設定中的百分比
+                </div>
+              )}
             </div>
           </div>
 

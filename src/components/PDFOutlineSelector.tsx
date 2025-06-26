@@ -7,8 +7,8 @@ import { FileText, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// 設定 PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+// 設定 PDF.js worker - 使用本地 worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url);
 
 interface PDFOutlineSelectorProps {
   pdfFile: File;
@@ -43,7 +43,10 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
       setLoading(true);
       
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdf = await pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        useSystemFonts: true
+      }).promise;
       
       let extractedOutline: OutlineItem[] = [];
       
