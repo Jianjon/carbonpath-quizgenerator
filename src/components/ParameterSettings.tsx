@@ -74,9 +74,9 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
     // 更新題目數量時，同時更新權重配置中的相關數量
     const updatedConfig = {
       ...parameters.weightingConfig,
-      chapterWeights: parameters.weightingConfig.chapterWeights.map(chapter => ({
-        ...chapter,
-        questions: Math.round(chapter.weight / 100 * newCount)
+      chapterWeights: parameters.weightingConfig.chapterWeights.map(ch => ({
+        ...ch,
+        questions: Math.round(ch.weight / 100 * newCount)
       }))
     };
     onParametersChange({
@@ -150,14 +150,14 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             基本設定
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           {/* 出題範圍類型 */}
-          <div>
+          <div className="w-full">
             <Label htmlFor="chapterType" className="text-sm font-medium text-gray-700">
               出題範圍類型
             </Label>
             <Select value={parameters.chapterType} onValueChange={(value: ChapterType) => updateParameter('chapterType', value)}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger className="mt-1 w-full">
                 <SelectValue placeholder="選擇範圍類型" />
               </SelectTrigger>
               <SelectContent>
@@ -167,14 +167,14 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             </Select>
           </div>
 
-          {/* 主題或章節名稱 - 使用 Textarea 增加高度 */}
-          <div>
+          {/* 主題或章節名稱 */}
+          <div className="w-full">
             <Label htmlFor="chapter" className="text-sm font-medium text-gray-700">
               {parameters.chapterType === 'pages' ? 'PDF 頁數範圍' : '主題或章節名稱'}
             </Label>
             <Textarea 
               id="chapter" 
-              className="mt-1 min-h-[80px]"
+              className="mt-1 min-h-[80px] w-full"
               placeholder={parameters.chapterType === 'pages' ? "例如：1-5, 10, 15-20" : "例如：第一章 - 基礎概念"} 
               value={parameters.chapter} 
               onChange={e => updateParameter('chapter', e.target.value)} 
@@ -189,7 +189,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </div>
 
           {/* 基本難度等級 */}
-          <div>
+          <div className="w-full">
             <Label htmlFor="difficulty" className="text-sm font-medium text-gray-700">
               基本難度等級
               {isAdvancedDifficultyEnabled() && (
@@ -204,7 +204,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               onValueChange={value => updateParameter('difficulty', value)} 
               disabled={isAdvancedDifficultyEnabled()}
             >
-              <SelectTrigger className="mt-1">
+              <SelectTrigger className="mt-1 w-full">
                 <SelectValue placeholder="選擇難度" />
               </SelectTrigger>
               <SelectContent>
@@ -227,7 +227,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </div>
 
           {/* 題目數量 */}
-          <div>
+          <div className="w-full">
             <Label className="text-sm font-medium text-gray-700">
               題目數量：{parameters.questionCount} 題
             </Label>
@@ -253,7 +253,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </div>
 
           {/* 題型說明區塊 */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 w-full">
             <div className="flex items-center gap-3">
               <div className="bg-blue-100 p-2 rounded-full">
                 <Settings2 className="h-5 w-5 text-blue-600" />

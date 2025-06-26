@@ -327,10 +327,10 @@ ${q.options ? q.options.join('\n') : ''}
   };
 
   return (
-    <div className="max-w-full mx-auto">
-      <div className="flex gap-6 min-h-screen">
+    <div className="max-w-full mx-auto p-4">
+      <div className="flex gap-6">
         {/* 左側：教材上傳與參數設定 (1/3) */}
-        <div className="w-1/3 space-y-6 overflow-y-auto pr-4">
+        <div className="w-1/3 space-y-6 overflow-y-auto">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
@@ -384,7 +384,7 @@ ${q.options ? q.options.join('\n') : ''}
 
         {/* 右側：生成結果與預覽 (2/3) */}
         <div className="w-2/3">
-          <Card className="min-h-screen">
+          <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Brain className="h-5 w-5 text-purple-600" />

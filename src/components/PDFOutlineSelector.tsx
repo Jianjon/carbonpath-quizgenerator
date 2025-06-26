@@ -6,8 +6,8 @@ import { FileText, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// 設定 PDF.js worker - 使用本地 worker，轉換為字串
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
+// 使用 CDN 版本的 PDF.js worker，確保穩定性
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.3.31/pdf.worker.min.js';
 
 interface PDFOutlineSelectorProps {
   pdfFile: File;
@@ -44,8 +44,12 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ 
         data: arrayBuffer,
-        useSystemFonts: true
+        useSystemFonts: true,
+        disableFontFace: false,
+        isEvalSupported: false
       }).promise;
+      
+      console.log('PDF 載入成功，頁數:', pdf.numPages);
       
       let extractedOutline: OutlineItem[] = [];
       
@@ -57,8 +61,15 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
         extractedOutline = await extractFullOutline(pdf);
       }
       
-      setOutline(extractedOutline);
       console.log('成功提取 PDF 大綱:', extractedOutline);
+      setOutline(extractedOutline);
+      
+      if (extractedOutline.length === 0) {
+        toast({
+          title: "提醒",
+          description: "未能從 PDF 中提取到大綱結構，但仍可以使用文字內容進行出題",
+        });
+      }
       
     } catch (error) {
       console.error('PDF 解析錯誤:', error);
@@ -278,7 +289,7 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
             </div>
           </div>
         ) : outline.length > 0 ? (
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="space-y-2 overflow-y-auto">
             <p className="text-sm text-gray-600 mb-3">
               請選擇要出題的主題範圍：
             </p>
@@ -298,7 +309,11 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
         ) : (
           <div className="text-center py-8">
             <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">無法提取 PDF 大綱</p>
+            <p className="text-sm text-gray-600">
+              PDF 已上傳但未提取到大綱結構
+              <br />
+              <span className="text-xs">仍可透過章節名稱進行出題</span>
+            </p>
           </div>
         )}
       </CardContent>
