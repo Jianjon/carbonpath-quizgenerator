@@ -69,29 +69,62 @@ export const useQuestionGeneration = () => {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStep, setGenerationStep] = useState('');
 
+  // 預設的淨零iPAS樣題
+  const defaultSampleQuestions = [
+    {
+      id: "sample-1",
+      question: "「A公司在溫盤報告書提到盤查的範圍包含台灣廠與大陸廠。」請問這段描述內容描述的是界定何種邊界？",
+      options: ["(A)營運邊界", "(B)組織邊界", "(C)報告邊界", "(D)以上皆非"],
+      answer: "(B)"
+    },
+    {
+      id: "sample-2", 
+      question: "碳足跡計算是以生命週期概念計算，下列何者的目的排放量需要包含至總量中？",
+      options: ["(A)最終產品處理", "(B)產品配送", "(C)生產製造", "(D)以上皆是"],
+      answer: "(D)"
+    },
+    {
+      id: "sample-3",
+      question: "關於「再生能源」的定義，下列何者正確？",
+      options: ["(A)100%不排放碳的能源", "(B)只使用太陽能和風能的能源", "(C)從持續不斷地補充的自然過程中得到的能量來源", "(D)由動植物質產生的能源"],
+      answer: "(C)"
+    },
+    {
+      id: "sample-4",
+      question: "下列何者並非我國2050淨零排放路徑之四大轉型？",
+      options: ["(A)能源轉型", "(B)產業轉型", "(C)生態轉型", "(D)社會轉型"],
+      answer: "(C)"
+    },
+    {
+      id: "sample-5",
+      question: "根據 ISO 14064-1 標準，企業在進行碳排放盤查時，應納入哪一範圍的排放？",
+      options: ["(A)只包括直接排放", "(B)包括直接和間接排放", "(C)只包括間接排放", "(D)只包括生產過程中的排放"],
+      answer: "(B)"
+    }
+  ];
+
   // 改善進度模擬，更平滑的進度更新
   const simulateProgress = () => {
     let progress = 0;
     const steps = [
-      '正在分析PDF內容...',
-      '提取關鍵段落和概念...',
-      '學習出題風格和模式...',
-      '構建題目框架...',
-      '生成選項和解析...',
+      '正在分析教材內容...',
+      '學習題目風格和模式...',
+      '生成淨零iPAS考試題目...',
+      '設計選項和解析...',
       '檢查內容完整性...',
       '最終格式化處理...'
     ];
     
     const progressInterval = setInterval(() => {
       if (progress < 90) {
-        progress += Math.random() * 10 + 5; // 每次增加5-15%
+        progress += Math.random() * 10 + 5;
         if (progress > 90) progress = 90;
         
         const stepIndex = Math.floor((progress / 90) * steps.length);
         setGenerationProgress(Math.round(progress));
         setGenerationStep(steps[stepIndex] || steps[steps.length - 1]);
       }
-    }, 800); // 更頻繁的更新
+    }, 800);
     
     return progressInterval;
   };
@@ -195,62 +228,30 @@ export const useQuestionGeneration = () => {
 
   // 分析樣題風格
   const analyzeSampleStyle = (sampleQuestions: SampleQuestion[]): string => {
-    if (sampleQuestions.length === 0) return '';
+    // 如果用戶沒有提供樣題，使用預設的淨零iPAS樣題
+    const questionsToAnalyze = sampleQuestions.length > 0 ? sampleQuestions : defaultSampleQuestions;
     
-    const styleAnalysis = {
-      questionLength: 0,
-      hasScenario: 0,
-      hasCalculation: 0,
-      hasConcept: 0,
-      hasApplication: 0
-    };
+    let stylePrompt = `\n\n【重要：題目風格學習】\n請嚴格學習以下 ${questionsToAnalyze.length} 個淨零iPAS考試樣題的風格：\n\n`;
     
-    sampleQuestions.forEach(sample => {
-      styleAnalysis.questionLength += sample.question.length;
-      
-      if (sample.question.includes('情境') || sample.question.includes('案例') || sample.question.includes('假設')) {
-        styleAnalysis.hasScenario++;
+    questionsToAnalyze.forEach((sample, index) => {
+      stylePrompt += `樣題 ${index + 1}：\n`;
+      stylePrompt += `題目：${sample.question}\n`;
+      if (sample.options) {
+        sample.options.forEach(option => {
+          stylePrompt += `${option}\n`;
+        });
       }
-      
-      if (sample.question.includes('計算') || sample.question.includes('數值') || /\d+/.test(sample.question)) {
-        styleAnalysis.hasCalculation++;
-      }
-      
-      if (sample.question.includes('概念') || sample.question.includes('定義') || sample.question.includes('原理')) {
-        styleAnalysis.hasConcept++;
-      }
-      
-      if (sample.question.includes('應用') || sample.question.includes('實務') || sample.question.includes('如何')) {
-        styleAnalysis.hasApplication++;
-      }
+      stylePrompt += `正確答案：${sample.answer}\n\n`;
     });
     
-    const avgLength = styleAnalysis.questionLength / sampleQuestions.length;
-    const total = sampleQuestions.length;
-    
-    let stylePrompt = `\n\n根據提供的 ${total} 個樣題，AI 應該學習以下風格特徵：\n`;
-    
-    if (avgLength > 50) {
-      stylePrompt += `- 題目長度偏長（平均 ${Math.round(avgLength)} 字），應採用詳細描述\n`;
-    } else {
-      stylePrompt += `- 題目長度偏短（平均 ${Math.round(avgLength)} 字），應採用簡潔表達\n`;
-    }
-    
-    if (styleAnalysis.hasScenario / total > 0.3) {
-      stylePrompt += `- 經常使用情境案例（${Math.round(styleAnalysis.hasScenario / total * 100)}%），應融入實際場景\n`;
-    }
-    
-    if (styleAnalysis.hasCalculation / total > 0.2) {
-      stylePrompt += `- 包含計算或數值（${Math.round(styleAnalysis.hasCalculation / total * 100)}%），應加入量化元素\n`;
-    }
-    
-    if (styleAnalysis.hasConcept / total > 0.4) {
-      stylePrompt += `- 聚焦概念理解（${Math.round(styleAnalysis.hasConcept / total * 100)}%），應強調理論基礎\n`;
-    }
-    
-    if (styleAnalysis.hasApplication / total > 0.3) {
-      stylePrompt += `- 重視實務應用（${Math.round(styleAnalysis.hasApplication / total * 100)}%），應結合實際運用\n`;
-    }
+    stylePrompt += `【風格特徵分析】：\n`;
+    stylePrompt += `- 題目表達直接自然，不使用「根據講義」等字眼\n`;
+    stylePrompt += `- 專業術語使用準確，符合淨零碳排放專業領域\n`;
+    stylePrompt += `- 選項設計清晰，使用 (A)(B)(C)(D) 格式\n`;
+    stylePrompt += `- 題目涵蓋碳盤查、碳足跡、再生能源、ISO標準等重點\n`;
+    stylePrompt += `- 包含實際案例和計算題型\n`;
+    stylePrompt += `- 語言風格專業但易懂，適合iPAS考試\n\n`;
+    stylePrompt += `請完全按照以上樣題的風格、用詞習慣、題目結構來生成新題目。\n`;
     
     return stylePrompt;
   };
@@ -259,34 +260,34 @@ export const useQuestionGeneration = () => {
   const getQuestionStylePrompt = (style: string) => {
     switch (style) {
       case 'intuitive':
-        return `【直覺學習型題目】- 專注基礎理解
-        - 題目簡潔明瞭，重點突出
-        - 基於教材內容的核心概念
+        return `【直覺學習型題目】- 淨零iPAS考試風格
+        - 題目簡潔直接，重點突出
+        - 基於淨零碳排放核心概念
         - 選項設計清晰，便於快速理解
-        - 適合基礎學習和概念確認`;
+        - 適合iPAS基礎學習和概念確認`;
         
       case 'diagnostic':
-        return `【概念辨析型題目】- 釐清重要概念
-        - 幫助辨別相近概念的差異
-        - 基於教材中的重要定義
+        return `【概念辨析型題目】- 淨零iPAS專業辨析
+        - 幫助辨別碳排放相關概念差異
+        - 基於ISO標準和淨零政策的重要定義
         - 強化正確理解`;
         
       case 'application':
-        return `【應用理解型題目】- 理論聯繫實際
-        - 將教材概念應用到實際情況
-        - 培養實務理解能力`;
+        return `【應用理解型題目】- 淨零實務應用
+        - 將淨零概念應用到實際情況
+        - 培養碳盤查實務理解能力`;
         
       case 'strategic':
-        return `【邏輯分析型題目】- 培養思考能力
-        - 基於教材邏輯框架設計
+        return `【邏輯分析型題目】- 淨零策略思考
+        - 基於淨零轉型邏輯框架設計
         - 訓練分析和推理能力`;
         
       case 'mixed':
-        return `【綜合學習型題目】- 多元化學習
+        return `【綜合學習型題目】- 淨零iPAS全面準備
         - 結合各種題型特點`;
         
       default:
-        return '基於教材內容設計學習題目';
+        return '基於淨零iPAS考試內容設計學習題目';
     }
   };
 
@@ -311,19 +312,21 @@ export const useQuestionGeneration = () => {
     const difficultyPrompt = getDifficultyPrompt(parameters.difficultyLevel || 'medium');
     const sampleStylePrompt = analyzeSampleStyle(parameters.sampleQuestions);
 
-    // 修改系統提示，專門針對政府教育講義設計
-    const systemPrompt = `你是專業的教育評量設計師，專門為學習者製作基於教育講義的學習評量題目。
+    // 專門針對淨零iPAS考試的系統提示
+    const systemPrompt = `你是專業的淨零iPAS考試題目設計師，專門製作符合iPAS認證標準的淨零碳排放相關考試題目。
 
-🎯 **學習目標**：
+🎯 **出題目標**：
 ${chapterPrompt}${keywordsPrompt}
 - 製作 ${parameters.questionCount} 道標準選擇題（A、B、C、D 四選項）
-- 幫助學習者理解和掌握講義中的重要概念
+- 幫助考生準備淨零iPAS認證考試
 
-📚 **題目製作原則**：
-- 基於提供的學習講義內容
-- 重點關注基礎概念和重要定義
-- 使用清晰易懂的學術語言
-- 確保題目有助於學習理解
+📚 **出題領域**：
+- 碳盤查與碳足跡
+- 淨零排放政策與轉型
+- 再生能源與能源轉型
+- ISO 14064 標準
+- 溫室氣體管理
+- 碳中和與碳抵換
 
 🎨 **出題風格**：${stylePrompt}
 
@@ -331,35 +334,36 @@ ${chapterPrompt}${keywordsPrompt}
 
 ⚡ **製作要求**：
 1. 每道題目包含：清楚的題目描述、四個選項（A/B/C/D）、正確答案、簡要解析
-2. 題目內容應該適合教育學習環境
-3. 重點突出講義中的核心知識點
-4. 確保所有內容都有教育意義
+2. 題目表達自然直接，避免使用「根據講義」等字眼
+3. 專業術語使用準確，符合淨零碳排放專業領域
+4. 題目難度適合iPAS認證考試水準
+5. 包含實際案例和應用情境
 
 📝 **標準格式（僅返回JSON陣列）**：
 [
   {
     "id": "1",
-    "content": "根據講義內容，以下何者正確？",
+    "content": "關於碳盤查的組織邊界，下列何者正確？",
     "options": {"A": "選項A內容", "B": "選項B內容", "C": "選項C內容", "D": "選項D內容"},
     "correct_answer": "A",
-    "explanation": "根據講義第X頁內容，正確答案為A，因為...",
+    "explanation": "正確答案為A，因為組織邊界是指...",
     "question_type": "choice",
     "difficulty": 0.5,
     "difficulty_label": "中",
     "bloom_level": 2,
-    "chapter": "講義學習",
+    "chapter": "淨零iPAS",
     "source_pdf": "${uploadedFile?.name || ''}",
     "page_range": "${parameters.chapter}",
-    "tags": ["基礎概念"]
+    "tags": ["碳盤查", "iPAS"]
   }
 ]
 
 ${sampleStylePrompt}
 
-**請製作完整的 ${parameters.questionCount} 道學習評量題目。**`;
+**請製作完整的 ${parameters.questionCount} 道淨零iPAS考試題目。**`;
 
     try {
-      console.log('🎯 政府講義題目生成開始');
+      console.log('🎯 淨零iPAS題目生成開始');
       console.log('📋 設定參數:', {
         頁數: parameters.chapter,
         風格: parameters.questionStyle,
@@ -369,7 +373,7 @@ ${sampleStylePrompt}
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請基於教育講義內容製作 ${parameters.questionCount} 道學習評量選擇題。每道題目都要完整包含題目、四個選項、正確答案和學習解析。請直接提供JSON格式回應，不要有其他內容。${parameters.sampleQuestions.length > 0 ? '請參考提供的題目風格範例。' : ''}`,
+          userPrompt: `請基於淨零iPAS考試標準製作 ${parameters.questionCount} 道選擇題。每道題目都要完整包含題目、四個選項、正確答案和解析。請學習提供的樣題風格，題目表達要自然直接，不要使用「根據講義」等字眼。請直接提供JSON格式回應。`,
           model: 'gpt-4o-mini'
         }
       });
@@ -441,7 +445,7 @@ ${sampleStylePrompt}
       }
 
       setGenerationProgress(100);
-      setGenerationStep('🎉 政府講義題庫生成完成！');
+      setGenerationStep('🎉 淨零iPAS題庫生成完成！');
       
       const successRate = validQuestions.length / parameters.questionCount;
       const successMessage = successRate >= 0.8 ? 
