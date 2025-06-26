@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -8,6 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { Checkbox } from '@/components/ui/checkbox';
+
 interface SampleQuestion {
   id: string;
   question: string;
@@ -15,11 +17,13 @@ interface SampleQuestion {
   options?: string[];
   answer: string;
 }
+
 interface ChapterWeight {
   name: string;
   weight: number;
   questions: number;
 }
+
 interface WeightingConfig {
   chapterWeights: ChapterWeight[];
   difficultyDistribution: {
@@ -40,22 +44,23 @@ interface WeightingConfig {
     essay: number;
   };
 }
-type ChapterType = 'topic' | 'pages';
+
 interface Parameters {
   chapter: string;
-  chapterType: ChapterType;
-  questionStyle: string; // 改為題目風格
+  questionStyle: string;
   questionCount: number;
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
   weightingConfig: WeightingConfig;
   keywords?: string;
 }
+
 interface ParameterSettingsProps {
   parameters: Parameters;
   onParametersChange: (parameters: Parameters) => void;
   uploadedFile?: File | null;
 }
+
 export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   parameters,
   onParametersChange,
@@ -69,67 +74,18 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
       [key]: value
     });
   };
+
   const updateQuestionCount = (newCount: number) => {
     onParametersChange({
       ...parameters,
       questionCount: newCount
     });
   };
-  const updateWeightingConfig = (config: WeightingConfig) => {
-    updateParameter('weightingConfig', config);
-  };
+
   const handleAdvancedSettingsChange = (checked: boolean | "indeterminate") => {
     setAdvancedSettingsEnabled(checked === true);
   };
-  const getEffectiveAdvancedConfig = () => {
-    if (!advancedSettingsEnabled) {
-      return {
-        difficultyDistribution: {
-          easy: 20,
-          medium: 60,
-          hard: 20
-        },
-        cognitiveDistribution: {
-          remember: 20,
-          understand: 40,
-          apply: 30,
-          analyze: 10
-        },
-        questionTypeWeights: {
-          multipleChoice: 70,
-          trueFalse: 15,
-          shortAnswer: 10,
-          essay: 5
-        },
-        keywords: '',
-        sampleQuestions: []
-      };
-    }
-    return {
-      difficultyDistribution: parameters.weightingConfig.difficultyDistribution,
-      cognitiveDistribution: parameters.weightingConfig.cognitiveDistribution,
-      questionTypeWeights: parameters.weightingConfig.questionTypeWeights,
-      keywords: parameters.keywords || '',
-      sampleQuestions: parameters.sampleQuestions
-    };
-  };
-  const getDifficultyTotal = () => {
-    const {
-      easy,
-      medium,
-      hard
-    } = getEffectiveAdvancedConfig().difficultyDistribution;
-    return Math.round(parameters.questionCount * easy / 100) + Math.round(parameters.questionCount * medium / 100) + Math.round(parameters.questionCount * hard / 100);
-  };
-  const getCognitiveTotal = () => {
-    const {
-      remember,
-      understand,
-      apply,
-      analyze
-    } = getEffectiveAdvancedConfig().cognitiveDistribution;
-    return Math.round(parameters.questionCount * remember / 100) + Math.round(parameters.questionCount * understand / 100) + Math.round(parameters.questionCount * apply / 100) + Math.round(parameters.questionCount * analyze / 100);
-  };
+
   return (
     <div className="space-y-6">
       {/* 基本設定 */}
@@ -141,43 +97,21 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* 出題範圍類型 */}
-          <div className="w-full">
-            <Label htmlFor="chapterType" className="text-sm font-medium text-gray-700">
-              出題範圍類型
-            </Label>
-            <Select 
-              value={parameters.chapterType} 
-              onValueChange={(value: ChapterType) => updateParameter('chapterType', value)}
-            >
-              <SelectTrigger className="mt-1 w-full">
-                <SelectValue placeholder="選擇範圍類型" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="topic">主題範圍</SelectItem>
-                <SelectItem value="pages">PDF 頁數</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 主題或章節名稱 */}
+          {/* PDF 頁數範圍 */}
           <div className="w-full">
             <Label htmlFor="chapter" className="text-sm font-medium text-gray-700">
-              {parameters.chapterType === 'pages' ? 'PDF 頁數範圍' : '主題或章節名稱'}
+              PDF 頁數範圍
             </Label>
             <Textarea
               id="chapter"
               className="mt-1 min-h-[80px] w-full"
-              placeholder={parameters.chapterType === 'pages' ? "例如：1-5, 10, 15-20" : "例如：第一章 - 基礎概念"}
+              placeholder="例如：1-5, 10, 15-20"
               value={parameters.chapter}
               onChange={(e) => updateParameter('chapter', e.target.value)}
               rows={3}
             />
             <p className="text-xs text-gray-500 mt-1">
-              {parameters.chapterType === 'pages' 
-                ? "指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍" 
-                : "描述出題的主題範圍，這將作為 AI 生成題目的重要參考"
-              }
+              指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍
             </p>
           </div>
 

@@ -56,11 +56,10 @@ interface QuestionData {
   page_range?: string;
   tags?: string[];
 }
-type ChapterType = 'topic' | 'pages';
+type ChapterType = 'pages';
 interface Parameters {
   chapter: string;
-  chapterType: ChapterType;
-  questionStyle: string; // 改為題目風格
+  questionStyle: string;
   questionCount: number;
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
@@ -71,9 +70,7 @@ export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [parameters, setParameters] = useState<Parameters>({
     chapter: '',
-    chapterType: 'topic',
     questionStyle: 'intuitive',
-    // 改為題目風格，預設為直覺刷題型
     questionCount: 10,
     questionTypes: ['multiple-choice'],
     sampleQuestions: [] as SampleQuestion[],
@@ -195,7 +192,7 @@ export const QuestionBankGenerator = () => {
     if (!parameters.chapter) {
       toast({
         title: "請設定出題範圍",
-        description: "請在基本設定中輸入出題的主題或頁數範圍"
+        description: "請在基本設定中輸入出題的PDF頁數範圍"
       });
     }
   };
@@ -208,10 +205,8 @@ export const QuestionBankGenerator = () => {
     setGenerationStep('準備生成參數...');
     
     let chapterPrompt = '';
-    if (parameters.chapterType === 'pages' && parameters.chapter) {
+    if (parameters.chapter) {
       chapterPrompt = `請針對 PDF 文件的第 ${parameters.chapter} 頁內容出題`;
-    } else if (parameters.chapter) {
-      chapterPrompt = `請針對「${parameters.chapter}」這個主題出題`;
     }
     
     const keywordsPrompt = parameters.keywords ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}` : '';
@@ -261,7 +256,7 @@ AI 智慧表達要求：
     "bloom_level": 2,
     "chapter": "章節名稱",
     "source_pdf": "${uploadedFile?.name || ''}",
-    "page_range": "${parameters.chapterType === 'pages' ? parameters.chapter : ''}",
+    "page_range": "${parameters.chapter}",
     "tags": ["關鍵字1", "關鍵字2"]
   }
 ]${advancedSettingsPrompt}
@@ -368,7 +363,7 @@ ${q.options ? q.options.join('\n') : ''}
     if (!uploadedFile && !parameters.chapter) {
       toast({
         title: "請先完成設定",
-        description: "請上傳 PDF 檔案或輸入章節名稱",
+        description: "請上傳 PDF 檔案或輸入頁數範圍",
         variant: "destructive"
       });
       return;

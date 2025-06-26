@@ -335,8 +335,8 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, par
         </div>
       </div>
 
-      <div className="space-y-4 max-h-[600px] overflow-y-auto">
-        {questions.slice(0, 5).map((question, index) => (
+      <div className="space-y-4">
+        {questions.map((question, index) => (
           <Card key={question.id} className="border-l-4 border-l-blue-500">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-start justify-between">
@@ -423,22 +423,6 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions, par
             </CardContent>
           </Card>
         ))}
-        
-        {questions.length > 5 && (
-          <div className="text-center py-4">
-            <p className="text-gray-500 text-sm">
-              顯示前 5 題，共 {questions.length} 題
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-2"
-              onClick={() => setShowFullPage(true)}
-            >
-              查看全部題目
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
