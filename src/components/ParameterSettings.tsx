@@ -1,15 +1,14 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { WeightingSystem } from './WeightingSystem';
+import { PDFOutlineSelector } from './PDFOutlineSelector';
 
 interface SampleQuestion {
   id: string;
@@ -62,11 +61,13 @@ interface Parameters {
 interface ParameterSettingsProps {
   parameters: Parameters;
   onParametersChange: (parameters: Parameters) => void;
+  uploadedFile?: File | null;
 }
 
 export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   parameters,
-  onParametersChange
+  onParametersChange,
+  uploadedFile
 }) => {
   const updateParameter = <K extends keyof Parameters>(key: K, value: Parameters[K]) => {
     onParametersChange({
@@ -92,15 +93,15 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
     });
   };
 
-  const toggleQuestionType = (type: string, checked: boolean) => {
-    const newTypes = checked
-      ? [...parameters.questionTypes, type]
-      : parameters.questionTypes.filter(t => t !== type);
-    updateParameter('questionTypes', newTypes);
-  };
-
   const updateWeightingConfig = (config: WeightingConfig) => {
     updateParameter('weightingConfig', config);
+  };
+
+  // 處理 PDF 主題選擇
+  const handleTopicsChange = (selectedTopics: string[]) => {
+    // 將選中的主題轉換為章節字符串
+    const topicsString = selectedTopics.join(', ');
+    updateParameter('chapter', topicsString);
   };
 
   // 檢查是否啟用進階難度設定
@@ -253,31 +254,36 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
 
           <div className="space-y-4">
             <Label>題型選擇</Label>
-            {[
-              { id: 'multiple-choice', label: '選擇題', description: '單選題型，提供 4 個選項' },
-              { id: 'true-false', label: '是非題', description: '判斷題型，對錯選擇' },
-              { id: 'short-answer', label: '簡答題', description: '需要簡短文字回答' },
-              { id: 'essay', label: '問答題', description: '需要詳細解答說明' }
-            ].map((type) => (
-              <div key={type.id} className="flex items-start space-x-3 p-3 rounded-lg border">
-                <Checkbox
-                  id={type.id}
-                  checked={parameters.questionTypes.includes(type.id)}
-                  onCheckedChange={(checked) => toggleQuestionType(type.id, checked as boolean)}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <Label htmlFor={type.id} className="font-medium">
-                    {type.label}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    {type.description}
+            <div className="p-3 rounded-lg border bg-blue-50 border-blue-200">
+              <div className="flex items-start space-x-3">
+                <div className="bg-blue-100 p-2 rounded">
+                  <Settings2 className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <div className="font-medium text-blue-900">選擇題</div>
+                  <p className="text-xs text-blue-700 mt-1">
+                    系統已固定為選擇題型，提供 4 個選項供學生選擇
                   </p>
                 </div>
               </div>
-            ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              目前系統專注於選擇題生成，確保題目品質和一致性
+            </p>
           </div>
         </CardContent>
       </Card>
+
+      {/* PDF 大綱選擇 */}
+      {uploadedFile && (
+        <PDFOutlineSelector
+          pdfFile={uploadedFile}
+          selectedTopics={parameters.chapter ? parameters.chapter.split(', ') : []}
+          onTopicsChange={handleTopicsChange}
+          chapterType={parameters.chapterType}
+          chapterInput={parameters.chapter}
+        />
+      )}
 
       {/* 進階設定 - 可摺疊 */}
       <Collapsible>

@@ -75,12 +75,13 @@ interface Parameters {
 
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [showOutlineSelector, setShowOutlineSelector] = useState(false);
   const [parameters, setParameters] = useState<Parameters>({
     chapter: '',
     chapterType: 'topic',
     difficulty: 'medium',
     questionCount: 10,
-    questionTypes: ['multiple-choice'],
+    questionTypes: ['multiple-choice'], // 固定為選擇題
     sampleQuestions: [] as SampleQuestion[],
     keywords: '',
     weightingConfig: {
@@ -130,6 +131,18 @@ export const QuestionBankGenerator = () => {
     }
   };
 
+  // 處理上傳完成事件
+  const handleUploadComplete = () => {
+    // 如果沒有指定章節範圍，顯示大綱選擇器
+    if (!parameters.chapter) {
+      setShowOutlineSelector(true);
+      toast({
+        title: "選擇出題範圍",
+        description: "請從 PDF 大綱中選擇要出題的主題範圍",
+      });
+    }
+  };
+
   const generateQuestionsWithAI = async () => {
     const effectiveDifficulty = getEffectiveDifficulty();
     
@@ -144,6 +157,7 @@ export const QuestionBankGenerator = () => {
       ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}`
       : '';
 
+    // 固定為選擇題的系統提示
     const systemPrompt = `你是一位專業的教育測驗專家。
 
 **重要：你只能回傳純 JSON 陣列格式，絕對不能包含任何其他內容**
@@ -151,7 +165,7 @@ export const QuestionBankGenerator = () => {
 要求：
 ${chapterPrompt}${keywordsPrompt}
 - 題目數量：${parameters.questionCount}
-- 題型：${parameters.questionTypes.join(', ')}
+- 題型：選擇題（四選一）
 
 難度分佈：
 - 簡單：${effectiveDifficulty.easy}%
@@ -201,7 +215,7 @@ ${q.options ? q.options.join('\n') : ''}
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請嚴格按照上述 JSON 格式生成 ${parameters.questionCount} 道題目。只回傳 JSON 陣列，不要有任何其他內容。${uploadedFile?.name ? `\n參考 PDF：${uploadedFile.name}` : chapterPrompt}`,
+          userPrompt: `請嚴格按照上述 JSON 格式生成 ${parameters.questionCount} 道選擇題。只回傳 JSON 陣列，不要有任何其他內容。${uploadedFile?.name ? `\n參考 PDF：${uploadedFile.name}` : chapterPrompt}`,
           model: 'gpt-4o'
         }
       });
@@ -251,7 +265,7 @@ ${q.options ? q.options.join('\n') : ''}
       
       toast({
         title: "生成成功",
-        description: `成功生成 ${validQuestions.length} 道題目`,
+        description: `成功生成 ${validQuestions.length} 道選擇題`,
       });
 
     } catch (error) {
@@ -266,7 +280,11 @@ ${q.options ? q.options.join('\n') : ''}
 
   const handleGenerate = async () => {
     if (!uploadedFile && !parameters.chapter) {
-      alert('請上傳 PDF 檔案或輸入章節名稱');
+      toast({
+        title: "請先完成設定",
+        description: "請上傳 PDF 檔案或輸入章節名稱",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -291,6 +309,7 @@ ${q.options ? q.options.join('\n') : ''}
               <PDFUploader 
                 uploadedFile={uploadedFile}
                 onFileUpload={setUploadedFile}
+                onUploadComplete={handleUploadComplete}
               />
             </CardContent>
           </Card>
@@ -306,6 +325,7 @@ ${q.options ? q.options.join('\n') : ''}
               <ParameterSettings 
                 parameters={parameters}
                 onParametersChange={setParameters}
+                uploadedFile={uploadedFile}
               />
             </CardContent>
           </Card>
