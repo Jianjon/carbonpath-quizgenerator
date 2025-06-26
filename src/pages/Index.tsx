@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { QuestionBankGenerator } from '@/components/QuestionBankGenerator';
+import { Footer } from '@/components/Footer';
 
 const Index = () => {
   return (
@@ -19,6 +20,9 @@ const Index = () => {
         {/* 主要工作區 */}
         <QuestionBankGenerator />
       </div>
+      
+      {/* 頁面底部介紹 */}
+      <Footer />
     </div>
   );
 };

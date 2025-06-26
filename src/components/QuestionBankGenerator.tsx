@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
@@ -65,6 +64,7 @@ interface Parameters {
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
   weightingConfig: WeightingConfig;
+  keywords?: string; // 新增關鍵字欄位
 }
 
 export const QuestionBankGenerator = () => {
@@ -76,6 +76,7 @@ export const QuestionBankGenerator = () => {
     questionCount: 10,
     questionTypes: ['multiple-choice'],
     sampleQuestions: [] as SampleQuestion[],
+    keywords: '', // 初始化關鍵字
     weightingConfig: {
       chapterWeights: [],
       difficultyDistribution: {
@@ -136,9 +137,14 @@ export const QuestionBankGenerator = () => {
       chapterPrompt = `請針對「${parameters.chapter}」這個主題出題`;
     }
 
+    // 關鍵字提示
+    const keywordsPrompt = parameters.keywords 
+      ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}`
+      : '';
+
     const systemPrompt = `你是一位專業的教育測驗專家，需要根據提供的教材內容生成高品質的題目。
 
-${chapterPrompt}
+${chapterPrompt}${keywordsPrompt}
 - 題目數量：${parameters.questionCount}
 - 題型：${parameters.questionTypes.join(', ')}
 

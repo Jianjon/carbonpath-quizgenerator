@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -56,6 +55,7 @@ interface Parameters {
   questionTypes: string[];
   sampleQuestions: SampleQuestion[];
   weightingConfig: WeightingConfig;
+  keywords?: string; // 新增關鍵字欄位
 }
 
 interface ParameterSettingsProps {
@@ -255,6 +255,30 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               </div>
             </div>
           </div>
+
+          {/* 關鍵字設定 - 新增 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-purple-600" />
+                關鍵字聚焦
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div>
+                <Label htmlFor="keywords">出題關鍵字</Label>
+                <Input
+                  id="keywords"
+                  placeholder="例如：機器學習, 深度學習, 神經網路"
+                  value={parameters.keywords || ''}
+                  onChange={(e) => updateParameter('keywords', e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  輸入希望題目聚焦的關鍵字，用逗號分隔多個關鍵字。這將幫助 AI 生成更符合特定主題的題目。
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* 樣題參考 */}
           <SampleQuestions
