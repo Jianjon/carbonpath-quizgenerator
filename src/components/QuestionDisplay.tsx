@@ -1,10 +1,9 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Download, Save, FileText, FileSpreadsheet, CheckCircle, Lightbulb } from 'lucide-react';
+import { Download, Save, FileText, FileSpreadsheet, CheckCircle, Lightbulb, Maximize2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface QuestionData {
@@ -28,6 +27,8 @@ interface QuestionDisplayProps {
 }
 
 export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions }) => {
+  const [expandedView, setExpandedView] = useState(false);
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case '易': return 'bg-green-100 text-green-800';
@@ -120,65 +121,214 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions }) =
     link.click();
   };
 
-  const handleExportPDF = async () => {
-    // 依照需求的顯示格式：題號 + 題目內容 + A~D 選項 + 正確答案 + 解釋說明
-    const printContent = `
+  const handleOpenInNewWindow = () => {
+    const newWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+    if (!newWindow) return;
+
+    const htmlContent = generateFullPageHTML();
+    newWindow.document.write(htmlContent);
+    newWindow.document.close();
+  };
+
+  const generateFullPageHTML = () => {
+    return `
       <!DOCTYPE html>
-      <html>
+      <html lang="zh-TW">
       <head>
-        <meta charset="utf-8">
-        <title>題目考卷</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>題庫預覽 - ${new Date().toLocaleDateString('zh-TW')}</title>
         <style>
-          body { font-family: 'Microsoft JhengHei', sans-serif; margin: 20px; line-height: 1.8; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-          .question { margin-bottom: 30px; page-break-inside: avoid; }
-          .question-number { font-weight: bold; color: #2563eb; font-size: 18px; margin-bottom: 10px; }
-          .question-content { margin: 15px 0; font-size: 16px; font-weight: 500; }
-          .options { margin: 15px 0 20px 20px; }
-          .option { margin: 8px 0; font-size: 15px; }
-          .answer-section { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745; }
-          .correct-answer { color: #28a745; font-weight: bold; margin-bottom: 10px; }
-          .explanation { color: #495057; line-height: 1.6; }
-          .difficulty { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; margin-left: 10px; }
-          .易 { background: #d4edda; color: #155724; }
-          .中 { background: #fff3cd; color: #856404; }
-          .難 { background: #f8d7da; color: #721c24; }
-          .bloom-level { display: inline-block; padding: 2px 8px; background: #e9ecef; color: #495057; border-radius: 8px; font-size: 11px; margin-left: 5px; }
+          body { 
+            font-family: 'Microsoft JhengHei', sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            line-height: 1.6; 
+            background: #f8fafc;
+          }
+          .header { 
+            text-align: center; 
+            margin-bottom: 40px; 
+            padding: 30px; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+          .question-container { 
+            background: white; 
+            margin-bottom: 30px; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            page-break-inside: avoid; 
+          }
+          .question-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            border-bottom: 2px solid #e2e8f0; 
+            padding-bottom: 15px;
+          }
+          .question-number { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #2563eb; 
+          }
+          .badges { 
+            display: flex; 
+            gap: 8px; 
+          }
+          .badge { 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            font-weight: 500; 
+          }
+          .badge-chapter { background: #f1f5f9; color: #475569; }
+          .badge-易 { background: #dcfce7; color: #166534; }
+          .badge-中 { background: #fef3c7; color: #92400e; }
+          .badge-難 { background: #fecaca; color: #991b1b; }
+          .badge-bloom { background: #e0e7ff; color: #3730a3; }
+          .question-content { 
+            font-size: 18px; 
+            font-weight: 500; 
+            margin-bottom: 25px; 
+            color: #1e293b;
+          }
+          .options { 
+            margin-bottom: 25px; 
+          }
+          .option { 
+            display: flex; 
+            align-items: flex-start; 
+            gap: 12px; 
+            padding: 15px; 
+            margin: 12px 0; 
+            background: #f8fafc; 
+            border-radius: 8px; 
+            border-left: 4px solid #cbd5e1;
+          }
+          .option-label { 
+            font-weight: bold; 
+            color: #475569; 
+            min-width: 30px; 
+          }
+          .option-text { 
+            color: #334155; 
+          }
+          .answer-section { 
+            background: #f0fdf4; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border-left: 4px solid #22c55e; 
+            margin-bottom: 15px;
+          }
+          .answer-header { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            margin-bottom: 10px; 
+          }
+          .answer-text { 
+            font-size: 18px; 
+            font-weight: bold; 
+            color: #15803d; 
+          }
+          .explanation-section { 
+            background: #eff6ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border-left: 4px solid #3b82f6;
+          }
+          .explanation-header { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            margin-bottom: 10px; 
+          }
+          .explanation-text { 
+            color: #1e40af; 
+            line-height: 1.7; 
+          }
+          .tags { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            margin-top: 20px; 
+          }
+          .tag { 
+            background: #f1f5f9; 
+            color: #64748b; 
+            padding: 4px 8px; 
+            border-radius: 12px; 
+            font-size: 11px; 
+          }
+          @media print {
+            body { background: white; }
+            .question-container { 
+              box-shadow: none; 
+              border: 1px solid #e2e8f0; 
+            }
+          }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>題目考卷</h1>
-          <p>生成日期：${new Date().toLocaleDateString('zh-TW')}</p>
-          <p>題目數量：${questions.length} 題</p>
+          <h1 style="color: #1e293b; margin: 0 0 10px 0;">題庫預覽</h1>
+          <p style="color: #64748b; margin: 0;">生成日期：${new Date().toLocaleDateString('zh-TW')} | 題目數量：${questions.length} 題</p>
         </div>
-        ${questions.map((q, index) => `
-          <div class="question">
-            <div class="question-number">
-              ${index + 1}. 
-              <span class="difficulty ${q.difficulty_label}">${q.difficulty_label}</span>
-              <span class="bloom-level">${getBloomLevelLabel(q.bloom_level)}</span>
+        ${questions.map((question, index) => `
+          <div class="question-container">
+            <div class="question-header">
+              <div class="question-number">${index + 1}.</div>
+              <div class="badges">
+                <span class="badge badge-chapter">${question.chapter}</span>
+                <span class="badge badge-${question.difficulty_label}">${question.difficulty_label}</span>
+                <span class="badge badge-bloom">${getBloomLevelLabel(question.bloom_level)}</span>
+              </div>
             </div>
-            <div class="question-content">${q.content}</div>
-            ${Object.keys(q.options).length > 0 ? `
+            <div class="question-content">${question.content}</div>
+            ${Object.keys(question.options).length > 0 ? `
               <div class="options">
-                ${Object.entries(q.options).map(([key, value]) => `
-                  <div class="option">${key}. ${value}</div>
+                ${Object.entries(question.options).map(([key, value]) => `
+                  <div class="option">
+                    <span class="option-label">${key}.</span>
+                    <span class="option-text">${value}</span>
+                  </div>
                 `).join('')}
               </div>
             ` : ''}
             <div class="answer-section">
-              <div class="correct-answer">✅ 正確答案：${q.correct_answer}</div>
-              <div class="explanation">💡 解釋說明：${q.explanation}</div>
+              <div class="answer-header">
+                <span style="color: #22c55e;">✅</span>
+                <span style="font-weight: bold; color: #15803d;">正確答案</span>
+              </div>
+              <div class="answer-text">${question.correct_answer}</div>
             </div>
+            <div class="explanation-section">
+              <div class="explanation-header">
+                <span style="color: #3b82f6;">💡</span>
+                <span style="font-weight: bold; color: #1e40af;">解釋說明</span>
+              </div>
+              <div class="explanation-text">${question.explanation}</div>
+            </div>
+            ${question.tags && question.tags.length > 0 ? `
+              <div class="tags">
+                ${question.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+              </div>
+            ` : ''}
           </div>
         `).join('')}
       </body>
       </html>
     `;
+  };
 
+  const handleExportPDF = async () => {
+    const htmlContent = generateFullPageHTML();
     const newWindow = window.open('', '_blank');
-    newWindow?.document.write(printContent);
+    newWindow?.document.write(htmlContent);
     newWindow?.document.close();
     newWindow?.print();
   };
@@ -204,6 +354,14 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions }) =
           <p className="text-gray-600">共生成 {questions.length} 道題目</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setExpandedView(!expandedView)} size="sm">
+            <Maximize2 className="h-4 w-4 mr-2" />
+            {expandedView ? '縮小' : '放大'}
+          </Button>
+          <Button variant="outline" onClick={handleOpenInNewWindow} size="sm">
+            <ExternalLink className="h-4 w-4 mr-2" />
+            新視窗開啟
+          </Button>
           <Button variant="outline" onClick={handleExportExcel} size="sm">
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             匯出 Excel
@@ -219,13 +377,13 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions }) =
         </div>
       </div>
 
-      {/* 題目列表 - 依照平台/PDF 顯示格式 */}
-      <div className="space-y-6 pb-6">
+      {/* 題目列表 */}
+      <div className={`space-y-6 pb-6 ${expandedView ? 'text-lg' : ''}`}>
         {questions.map((question, index) => (
-          <Card key={question.id} className="hover:shadow-md transition-shadow">
+          <Card key={question.id} className={`hover:shadow-md transition-shadow ${expandedView ? 'text-lg' : ''}`}>
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
-                <CardTitle className="text-xl font-bold text-gray-900">
+                <CardTitle className={`font-bold text-gray-900 ${expandedView ? 'text-2xl' : 'text-xl'}`}>
                   {index + 1}.
                 </CardTitle>
                 <div className="flex gap-2">
@@ -241,7 +399,7 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions }) =
             </CardHeader>
             <CardContent className="space-y-6">
               {/* 題目內容 */}
-              <div className="text-lg font-medium text-gray-900 leading-relaxed">
+              <div className={`font-medium text-gray-900 leading-relaxed ${expandedView ? 'text-xl' : 'text-lg'}`}>
                 {question.content}
               </div>
 
@@ -249,9 +407,9 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions }) =
               {Object.keys(question.options).length > 0 && (
                 <div className="space-y-3">
                   {Object.entries(question.options).map(([key, value]) => (
-                    <div key={key} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border-l-4 border-gray-300">
-                      <span className="font-semibold text-gray-600 min-w-[20px]">{key}.</span>
-                      <span className="text-gray-700">{value}</span>
+                    <div key={key} className={`flex items-start gap-3 p-3 bg-gray-50 rounded-lg border-l-4 border-gray-300 ${expandedView ? 'p-4' : ''}`}>
+                      <span className={`font-semibold text-gray-600 min-w-[20px] ${expandedView ? 'text-lg' : ''}`}>{key}.</span>
+                      <span className={`text-gray-700 ${expandedView ? 'text-lg' : ''}`}>{value}</span>
                     </div>
                   ))}
                 </div>
@@ -259,22 +417,22 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ questions }) =
 
               <Separator />
 
-              {/* ✅ 正確答案（顯示在題目下） */}
-              <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
+              {/* ✅ 正確答案 */}
+              <div className={`bg-green-50 p-4 rounded-lg border-l-4 border-green-400 ${expandedView ? 'p-6' : ''}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="font-semibold text-green-700">正確答案</span>
+                  <CheckCircle className={`text-green-600 ${expandedView ? 'h-6 w-6' : 'h-5 w-5'}`} />
+                  <span className={`font-semibold text-green-700 ${expandedView ? 'text-lg' : ''}`}>正確答案</span>
                 </div>
-                <p className="text-green-600 font-bold text-lg">{question.correct_answer}</p>
+                <p className={`text-green-600 font-bold ${expandedView ? 'text-xl' : 'text-lg'}`}>{question.correct_answer}</p>
               </div>
 
-              {/* 💡 解釋說明（標準段落） */}
-              <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400">
+              {/* 💡 解釋說明 */}
+              <div className={`bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400 ${expandedView ? 'p-6' : ''}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <Lightbulb className="h-5 w-5 text-blue-600" />
-                  <span className="font-semibold text-blue-700">解釋說明</span>
+                  <Lightbulb className={`text-blue-600 ${expandedView ? 'h-6 w-6' : 'h-5 w-5'}`} />
+                  <span className={`font-semibold text-blue-700 ${expandedView ? 'text-lg' : ''}`}>解釋說明</span>
                 </div>
-                <p className="text-blue-600 leading-relaxed">{question.explanation}</p>
+                <p className={`text-blue-600 leading-relaxed ${expandedView ? 'text-lg' : ''}`}>{question.explanation}</p>
               </div>
 
               {/* 標籤資訊 */}

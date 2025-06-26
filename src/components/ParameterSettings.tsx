@@ -9,6 +9,7 @@ import { ChevronDown, Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { WeightingSystem } from './WeightingSystem';
 import { PDFOutlineSelector } from './PDFOutlineSelector';
+
 interface SampleQuestion {
   id: string;
   question: string;
@@ -218,19 +219,22 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </div>
 
           <div className="space-y-4">
-            <Label>題型選擇</Label>
-            <div className="p-3 rounded-lg border bg-blue-50 border-blue-200">
-              <div className="flex items-start space-x-3">
-                <div className="bg-blue-100 p-2 rounded">
-                  <Settings2 className="h-4 w-4 text-blue-600" />
+            <div className="p-4 rounded-lg border bg-blue-50 border-blue-200">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <Settings2 className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <div className="font-medium text-blue-900">選擇題</div>
-                  
+                  <div className="font-semibold text-blue-900 text-lg">題型設定</div>
+                  <div className="text-blue-700 text-sm mt-1">
+                    系統專門生成<span className="font-semibold">選擇題（四選一）</span>
+                  </div>
+                  <div className="text-blue-600 text-xs mt-2">
+                    所有題目將採用 A、B、C、D 四個選項的標準選擇題格式
+                  </div>
                 </div>
               </div>
             </div>
-            
           </div>
         </CardContent>
       </Card>
