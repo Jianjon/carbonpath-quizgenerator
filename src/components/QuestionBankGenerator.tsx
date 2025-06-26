@@ -4,8 +4,8 @@ import { ParameterSettings } from './ParameterSettings';
 import { QuestionDisplay } from './QuestionDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, FileText, Settings, Zap } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Brain, FileText, Settings, Zap, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -107,6 +107,8 @@ export const QuestionBankGenerator = () => {
   });
   const [generatedQuestions, setGeneratedQuestions] = useState<QuestionData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStep, setGenerationStep] = useState('');
 
   // 取得最終使用的難度設定
   const getEffectiveDifficulty = () => {
@@ -146,6 +148,10 @@ export const QuestionBankGenerator = () => {
   const generateQuestionsWithAI = async () => {
     const effectiveDifficulty = getEffectiveDifficulty();
     
+    // 重置進度
+    setGenerationProgress(0);
+    setGenerationStep('準備生成參數...');
+
     let chapterPrompt = '';
     if (parameters.chapterType === 'pages' && parameters.chapter) {
       chapterPrompt = `請針對 PDF 文件的第 ${parameters.chapter} 頁內容出題`;
@@ -156,6 +162,9 @@ export const QuestionBankGenerator = () => {
     const keywordsPrompt = parameters.keywords 
       ? `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}`
       : '';
+
+    setGenerationProgress(20);
+    setGenerationStep('構建提示內容...');
 
     // 固定為選擇題的系統提示
     const systemPrompt = `你是一位專業的教育測驗專家。
@@ -210,6 +219,9 @@ ${q.options ? q.options.join('\n') : ''}
 記住：只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
 
     try {
+      setGenerationProgress(40);
+      setGenerationStep('呼叫 AI 生成服務...');
+      
       console.log('開始呼叫 AI 生成題目...');
       
       const response = await supabase.functions.invoke('generate-questions', {
@@ -219,6 +231,9 @@ ${q.options ? q.options.join('\n') : ''}
           model: 'gpt-4o'
         }
       });
+
+      setGenerationProgress(70);
+      setGenerationStep('處理 AI 回應...');
 
       console.log('AI 回應:', response);
 
@@ -230,6 +245,9 @@ ${q.options ? q.options.join('\n') : ''}
       if (!response.data?.generatedText) {
         throw new Error('AI 回應格式錯誤：缺少生成內容');
       }
+
+      setGenerationProgress(85);
+      setGenerationStep('解析生成的題目...');
 
       let questions;
       try {
@@ -246,6 +264,9 @@ ${q.options ? q.options.join('\n') : ''}
         questions = [questions];
       }
 
+      setGenerationProgress(95);
+      setGenerationStep('驗證題目格式...');
+
       // 驗證題目格式
       const validQuestions = questions.filter(q => 
         q && 
@@ -260,6 +281,9 @@ ${q.options ? q.options.join('\n') : ''}
         throw new Error('生成的題目格式不完整，請重新嘗試');
       }
 
+      setGenerationProgress(100);
+      setGenerationStep('生成完成！');
+
       console.log('有效題目數量:', validQuestions.length);
       setGeneratedQuestions(validQuestions);
       
@@ -268,8 +292,16 @@ ${q.options ? q.options.join('\n') : ''}
         description: `成功生成 ${validQuestions.length} 道選擇題`,
       });
 
+      // 清除進度顯示
+      setTimeout(() => {
+        setGenerationProgress(0);
+        setGenerationStep('');
+      }, 2000);
+
     } catch (error) {
       console.error('生成題目時發生錯誤:', error);
+      setGenerationProgress(0);
+      setGenerationStep('');
       toast({
         title: "生成失敗",
         description: error.message || '請檢查網路連接後重新嘗試',
@@ -314,24 +346,28 @@ ${q.options ? q.options.join('\n') : ''}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Settings className="h-5 w-5 text-green-600" />
-                參數設定
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ParameterSettings 
-                parameters={parameters}
-                onParametersChange={setParameters}
-                uploadedFile={uploadedFile}
-              />
-            </CardContent>
-          </Card>
+          <ParameterSettings 
+            parameters={parameters}
+            onParametersChange={setParameters}
+            uploadedFile={uploadedFile}
+          />
 
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 space-y-4">
+              {/* 進度顯示 */}
+              {isGenerating && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    <span className="text-sm text-gray-600">{generationStep}</span>
+                  </div>
+                  <Progress value={generationProgress} className="h-2" />
+                  <div className="text-xs text-gray-500 text-center">
+                    {generationProgress}% 完成
+                  </div>
+                </div>
+              )}
+              
               <Button 
                 onClick={handleGenerate}
                 disabled={(!uploadedFile && !parameters.chapter) || isGenerating}

@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { FileText, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// 設置 PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// 設置 PDF.js worker - 使用本地版本避免 CORS 問題
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 interface OutlineItem {
   id: string;
@@ -45,25 +45,45 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
       setError(null);
 
       try {
+        console.log('開始解析 PDF 文件:', pdfFile.name);
         const arrayBuffer = await pdfFile.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        // 使用更安全的 PDF 載入方式
+        const loadingTask = pdfjsLib.getDocument({
+          data: arrayBuffer,
+          useSystemFonts: true,
+          standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
+        });
+        
+        const pdf = await loadingTask.promise;
+        console.log('PDF 載入成功，總頁數:', pdf.numPages);
         
         let extractedOutline: OutlineItem[] = [];
 
         if (chapterType === 'pages' && chapterInput) {
           // 根據指定頁數範圍提取詳細內容
+          console.log('提取頁數範圍:', chapterInput);
           extractedOutline = await extractPageRangeOutline(pdf, chapterInput);
         } else {
           // 提取整份 PDF 的主要大綱
+          console.log('提取完整 PDF 大綱');
           extractedOutline = await extractFullPDFOutline(pdf);
         }
 
+        console.log('提取的大綱:', extractedOutline);
         setOutline(extractedOutline);
+        
+        // 預設展開第一層
+        const firstLevelIds = extractedOutline.map(item => item.id);
+        setExpandedItems(new Set(firstLevelIds));
+        
       } catch (err) {
         console.error('PDF 解析錯誤:', err);
-        setError('無法解析 PDF 文件，請確認文件格式是否正確');
+        setError(`PDF 解析失敗: ${err.message}`);
         // 提供預設大綱作為備用
-        setOutline(getDefaultOutline());
+        const defaultOutline = getDefaultOutline();
+        setOutline(defaultOutline);
+        setExpandedItems(new Set(defaultOutline.map(item => item.id)));
       } finally {
         setLoading(false);
       }
@@ -76,9 +96,10 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
   const extractFullPDFOutline = async (pdf: any): Promise<OutlineItem[]> => {
     try {
       // 嘗試獲取 PDF 內建大綱
-      const outline = await pdf.getOutline();
-      if (outline && outline.length > 0) {
-        return convertPDFOutlineToFormat(outline);
+      const pdfOutline = await pdf.getOutline();
+      if (pdfOutline && pdfOutline.length > 0) {
+        console.log('找到 PDF 內建大綱');
+        return convertPDFOutlineToFormat(pdfOutline);
       }
     } catch (e) {
       console.log('無內建大綱，分析文本內容');
@@ -86,15 +107,21 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
 
     // 如果沒有內建大綱，分析前幾頁內容
     const mainTopics: OutlineItem[] = [];
-    const maxPagesToScan = Math.min(pdf.numPages, 10); // 掃描前10頁
+    const maxPagesToScan = Math.min(pdf.numPages, 15); // 增加掃描頁數
 
     for (let pageNum = 1; pageNum <= maxPagesToScan; pageNum++) {
       try {
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
         
-        // 查找類似標題的文本（簡單的啟發式方法）
+        console.log(`第 ${pageNum} 頁文字長度:`, pageText.length);
+        
+        // 查找類似標題的文本
         const titles = extractTitlesFromText(pageText, pageNum);
         mainTopics.push(...titles);
       } catch (e) {
@@ -102,53 +129,19 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
       }
     }
 
+    console.log('提取的標題數量:', mainTopics.length);
+
     // 如果沒有找到標題，返回基於實際內容的預設大綱
     if (mainTopics.length === 0) {
-      return [
-        {
-          id: 'topic_1',
-          title: '國內外永續趨勢及架構',
-          page: 1,
-          level: 1,
-          children: [
-            { id: 'topic_1_1', title: '全球永續發展趨勢', page: 1, level: 2 },
-            { id: 'topic_1_2', title: '國內永續政策架構', page: 3, level: 2 }
-          ]
-        },
-        {
-          id: 'topic_2',
-          title: '能源轉型落實和目標',
-          page: 5,
-          level: 1,
-          children: [
-            { id: 'topic_2_1', title: '再生能源發展策略', page: 5, level: 2 },
-            { id: 'topic_2_2', title: '能源轉型目標與路徑', page: 7, level: 2 }
-          ]
-        },
-        {
-          id: 'topic_3',
-          title: '碳資產管理策略解析',
-          page: 9,
-          level: 1,
-          children: [
-            { id: 'topic_3_1', title: '碳排放盤查方法', page: 9, level: 2 },
-            { id: 'topic_3_2', title: '碳資產價值評估', page: 11, level: 2 }
-          ]
-        },
-        {
-          id: 'topic_4',
-          title: '碳中和規範與實踐',
-          page: 13,
-          level: 1,
-          children: [
-            { id: 'topic_4_1', title: '碳中和標準與認證', page: 13, level: 2 },
-            { id: 'topic_4_2', title: '企業實踐案例分析', page: 15, level: 2 }
-          ]
-        }
-      ];
+      return getDefaultContentBasedOutline();
     }
 
-    return mainTopics;
+    // 去重並整理
+    const uniqueTopics = mainTopics.filter((topic, index, self) => 
+      index === self.findIndex(t => t.title === topic.title)
+    );
+
+    return uniqueTopics.slice(0, 10); // 限制數量
   };
 
   // 提取指定頁數範圍的詳細大綱
@@ -156,19 +149,35 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
     const pages = parsePageRange(pageRange);
     const detailedOutline: OutlineItem[] = [];
 
+    console.log('解析頁數範圍:', pages);
+
     for (const pageNum of pages) {
-      if (pageNum > pdf.numPages) continue;
+      if (pageNum > pdf.numPages) {
+        console.warn(`頁數 ${pageNum} 超出範圍 (總頁數: ${pdf.numPages})`);
+        continue;
+      }
 
       try {
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
         
         // 提取該頁的詳細主題
         const pageTopics = extractDetailedTopicsFromPage(pageText, pageNum);
         detailedOutline.push(...pageTopics);
       } catch (e) {
         console.error(`頁面 ${pageNum} 解析錯誤:`, e);
+        // 添加錯誤頁面的預設項目
+        detailedOutline.push({
+          id: `page_${pageNum}_error`,
+          title: `第 ${pageNum} 頁 (解析錯誤)`,
+          page: pageNum,
+          level: 1
+        });
       }
     }
 
@@ -196,20 +205,23 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
 
   // 從文本中提取標題
   const extractTitlesFromText = (text: string, pageNum: number): OutlineItem[] => {
-    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    const lines = text.split(/[。\n]/).filter(line => line.trim().length > 0);
     const titles: OutlineItem[] = [];
     
     lines.forEach((line, index) => {
-      // 簡單的標題識別邏輯
-      if (line.length < 50 && (
-        /^[0-9]+\./.test(line) || // 數字開頭
-        /^第[一二三四五六七八九十]+章/.test(line) || // 章節
-        line === line.toUpperCase() || // 全大寫
-        /：$/.test(line) // 冒號結尾
+      const trimmedLine = line.trim();
+      
+      // 改進的標題識別邏輯
+      if (trimmedLine.length >= 3 && trimmedLine.length <= 50 && (
+        /^[0-9]+[\.\、]/.test(trimmedLine) || // 數字開頭
+        /^第[一二三四五六七八九十\d]+[章節篇部分]/gu.test(trimmedLine) || // 章節
+        /^[一二三四五六七八九十]+[\.\、]/.test(trimmedLine) || // 中文數字
+        /[：:]\s*$/.test(trimmedLine) || // 冒號結尾
+        /趨勢|架構|策略|管理|規範|實踐|目標|落實|解析/.test(trimmedLine) // 關鍵詞
       )) {
         titles.push({
           id: `extracted_${pageNum}_${index}`,
-          title: line.trim(),
+          title: trimmedLine.replace(/[：:]\s*$/, ''),
           page: pageNum,
           level: 1
         });
@@ -222,20 +234,71 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
   // 從單頁提取詳細主題
   const extractDetailedTopicsFromPage = (text: string, pageNum: number): OutlineItem[] => {
     const topics: OutlineItem[] = [];
-    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    const lines = text.split(/[。\n]/).filter(line => line.trim().length > 0);
     
     lines.forEach((line, index) => {
-      if (line.trim().length > 5 && line.trim().length < 100) {
-        topics.push({
-          id: `page_${pageNum}_topic_${index}`,
-          title: `第${pageNum}頁 - ${line.trim()}`,
-          page: pageNum,
-          level: 2
-        });
+      const trimmedLine = line.trim();
+      if (trimmedLine.length >= 5 && trimmedLine.length <= 80) {
+        // 尋找有意義的句子或段落標題
+        if (/[A-Za-z\u4e00-\u9fff]/.test(trimmedLine) && 
+            !/^[0-9\s\-\.\,\(\)]+$/.test(trimmedLine)) {
+          topics.push({
+            id: `page_${pageNum}_topic_${index}`,
+            title: `${trimmedLine.substring(0, 60)}${trimmedLine.length > 60 ? '...' : ''}`,
+            page: pageNum,
+            level: 2
+          });
+        }
       }
     });
     
-    return topics.slice(0, 5); // 限制每頁最多5個主題
+    return topics.slice(0, 8); // 限制每頁最多8個主題
+  };
+
+  // 獲取基於內容的預設大綱
+  const getDefaultContentBasedOutline = (): OutlineItem[] => {
+    return [
+      {
+        id: 'topic_1',
+        title: '國內外永續趨勢及架構',
+        page: 1,
+        level: 1,
+        children: [
+          { id: 'topic_1_1', title: '全球永續發展趨勢', page: 1, level: 2 },
+          { id: 'topic_1_2', title: '國內永續政策架構', page: 3, level: 2 }
+        ]
+      },
+      {
+        id: 'topic_2',
+        title: '能源轉型落實和目標',
+        page: 5,
+        level: 1,
+        children: [
+          { id: 'topic_2_1', title: '再生能源發展策略', page: 5, level: 2 },
+          { id: 'topic_2_2', title: '能源轉型目標與路徑', page: 7, level: 2 }
+        ]
+      },
+      {
+        id: 'topic_3',
+        title: '碳資產管理策略解析',
+        page: 9,
+        level: 1,
+        children: [
+          { id: 'topic_3_1', title: '碳排放盤查方法', page: 9, level: 2 },
+          { id: 'topic_3_2', title: '碳資產價值評估', page: 11, level: 2 }
+        ]
+      },
+      {
+        id: 'topic_4',
+        title: '碳中和規範與實踐',
+        page: 13,
+        level: 1,
+        children: [
+          { id: 'topic_4_1', title: '碳中和標準與認證', page: 13, level: 2 },
+          { id: 'topic_4_2', title: '企業實踐案例分析', page: 15, level: 2 }
+        ]
+      }
+    ];
   };
 
   // 轉換 PDF 內建大綱格式
@@ -292,14 +355,29 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
 
   const handleTopicSelect = (topicId: string, checked: boolean) => {
     let newSelected = [...selectedTopics];
+    const item = findItemById(outline, topicId);
+    
     if (checked) {
-      if (!newSelected.includes(topicId)) {
-        newSelected.push(topicId);
+      if (!newSelected.includes(item?.title || topicId)) {
+        newSelected.push(item?.title || topicId);
       }
     } else {
-      newSelected = newSelected.filter(id => id !== topicId);
+      newSelected = newSelected.filter(title => title !== (item?.title || topicId));
     }
+    
+    console.log('選擇的主題:', newSelected);
     onTopicsChange(newSelected);
+  };
+
+  const findItemById = (items: OutlineItem[], id: string): OutlineItem | null => {
+    for (const item of items) {
+      if (item.id === id) return item;
+      if (item.children) {
+        const found = findItemById(item.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
   };
 
   const selectAll = () => {
@@ -381,7 +459,7 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
           <FileText className="h-5 w-5 text-blue-600" />
           選擇出題範圍
         </CardTitle>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-2">
           <Button
             variant="outline"
             size="sm"
@@ -403,19 +481,22 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
           </span>
         </div>
         {error && (
-          <p className="text-sm text-red-600 mt-2">
-            {error}
-          </p>
+          <div className="flex items-center gap-2 mt-2 p-2 bg-amber-50 rounded border border-amber-200">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <p className="text-sm text-amber-700">{error}</p>
+          </div>
         )}
       </CardHeader>
       <CardContent>
-        <div className="max-h-96 overflow-y-auto border rounded-lg p-4">
+        <div className="max-h-96 overflow-y-auto border rounded-lg p-4 bg-gray-50">
           {outline.length > 0 ? (
             renderOutline(outline)
           ) : (
-            <p className="text-gray-500 text-center py-4">
-              無法提取 PDF 大綱，請手動輸入章節資訊
-            </p>
+            <div className="text-center py-8">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-500">無法提取 PDF 大綱</p>
+              <p className="text-sm text-gray-400 mt-1">請手動輸入章節資訊或檢查PDF文件</p>
+            </div>
           )}
         </div>
       </CardContent>
