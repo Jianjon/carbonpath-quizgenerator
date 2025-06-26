@@ -8,8 +8,12 @@ export const Header = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-lg">
-              <BookOpen className="h-6 w-6 text-white" />
+            <div className="flex items-center space-x-2">
+              <img 
+                src="/lovable-uploads/f702def8-7da8-4e76-aeb5-8178cd1434d0.png" 
+                alt="CarbonPath Logo" 
+                className="h-8 w-auto"
+              />
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">AI 題庫生成器</h1>
