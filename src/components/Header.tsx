@@ -6,7 +6,7 @@ export const Header = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
-              <img src="/lovable-uploads/f702def8-7da8-4e76-aeb5-8178cd1434d0.png" alt="CarbonPath Logo" className="h-8 w-auto object-fill" />
+              <img alt="CarbonPath Logo" className="h-8 w-auto object-fill" src="/lovable-uploads/784635e8-9af2-4f52-9eda-11fa4548d49e.png" />
             </div>
             <div>
               
