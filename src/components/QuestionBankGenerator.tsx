@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
@@ -113,8 +112,10 @@ export const QuestionBankGenerator = () => {
 
   // 取得最終使用的難度設定
   const getEffectiveDifficulty = () => {
-    const { easy, medium, hard } = parameters.weightingConfig.difficultyDistribution;
-    const hasAdvancedDifficulty = !(easy === 20 && medium === 60 && hard === 20);
+    // 檢查是否有進階設定啟用
+    const hasAdvancedDifficulty = parameters.weightingConfig.difficultyDistribution.easy !== 20 ||
+      parameters.weightingConfig.difficultyDistribution.medium !== 60 ||
+      parameters.weightingConfig.difficultyDistribution.hard !== 20;
     
     if (hasAdvancedDifficulty) {
       return parameters.weightingConfig.difficultyDistribution;
@@ -148,6 +149,8 @@ export const QuestionBankGenerator = () => {
 
   const generateQuestionsWithAI = async () => {
     const effectiveDifficulty = getEffectiveDifficulty();
+    const effectiveCognitive = parameters.weightingConfig.cognitiveDistribution;
+    const hasAdvancedSettings = parameters.keywords || parameters.sampleQuestions.length > 0;
     
     // 重置進度
     setGenerationProgress(0);
@@ -167,6 +170,16 @@ export const QuestionBankGenerator = () => {
     setGenerationProgress(20);
     setGenerationStep('構建提示內容...');
 
+    // 構建進階設定提示
+    let advancedSettingsPrompt = '';
+    if (hasAdvancedSettings) {
+      advancedSettingsPrompt = `
+
+進階設定配置：
+- 關鍵字聚焦：${parameters.keywords || '無'}
+- 樣題參考數量：${parameters.sampleQuestions.length} 個`;
+    }
+
     // 固定為選擇題的系統提示
     const systemPrompt = `你是一位專業的教育測驗專家。
 
@@ -183,10 +196,10 @@ ${chapterPrompt}${keywordsPrompt}
 - 困難：${effectiveDifficulty.hard}%
 
 認知層次分佈：
-- 記憶：${parameters.weightingConfig.cognitiveDistribution.remember}%
-- 理解：${parameters.weightingConfig.cognitiveDistribution.understand}%
-- 應用：${parameters.weightingConfig.cognitiveDistribution.apply}%
-- 分析：${parameters.weightingConfig.cognitiveDistribution.analyze}%
+- 記憶：${effectiveCognitive.remember}%
+- 理解：${effectiveCognitive.understand}%
+- 應用：${effectiveCognitive.apply}%
+- 分析：${effectiveCognitive.analyze}%${advancedSettingsPrompt}
 
 ${parameters.sampleQuestions.length > 0 ? `
 參考樣題：

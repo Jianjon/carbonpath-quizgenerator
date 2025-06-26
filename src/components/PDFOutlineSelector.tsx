@@ -9,7 +9,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '@/integrations/supabase/client';
 
 // 設定 PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.js';
 
 interface PDFOutlineSelectorProps {
   pdfFile: File;
@@ -36,28 +36,83 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [extractionMethod, setExtractionMethod] = useState<'built-in' | 'ai-generated' | 'failed'>('built-in');
 
-  // 使用 AI 生成 PDF 大綱
+  // 提取 PDF 內建大綱
+  const extractBuiltInOutline = async (pdf: any): Promise<OutlineItem[]> => {
+    try {
+      console.log('嘗試提取 PDF 內建大綱...');
+      const outline = await pdf.getOutline();
+      
+      if (!outline || outline.length === 0) {
+        console.log('PDF 沒有內建大綱');
+        return [];
+      }
+
+      const processOutlineItem = async (item: any, level: number = 1): Promise<OutlineItem> => {
+        let pageNum: number | undefined;
+        
+        try {
+          if (item.dest) {
+            const dest = await pdf.getDestination(item.dest);
+            if (dest && dest[0]) {
+              const pageRef = dest[0];
+              pageNum = await pdf.getPageIndex(pageRef) + 1;
+            }
+          }
+        } catch (error) {
+          console.warn('無法取得頁碼:', error);
+        }
+
+        const processedItem: OutlineItem = {
+          title: item.title || '未命名章節',
+          level,
+          pageNum
+        };
+
+        if (item.items && item.items.length > 0) {
+          processedItem.children = await Promise.all(
+            item.items.map((child: any) => processOutlineItem(child, level + 1))
+          );
+        }
+
+        return processedItem;
+      };
+
+      const processedOutline = await Promise.all(
+        outline.map((item: any) => processOutlineItem(item))
+      );
+
+      console.log('成功提取內建大綱:', processedOutline);
+      return processedOutline;
+    } catch (error) {
+      console.error('提取內建大綱失敗:', error);
+      return [];
+    }
+  };
+
+  // 使用 AI 分析 PDF 內容生成大綱
   const generateOutlineWithAI = async (textContent: string) => {
     try {
-      console.log('使用 AI 生成 PDF 大綱...');
+      console.log('使用 AI 分析 PDF 內容生成大綱...');
       
-      const systemPrompt = `你是一位專業的教育內容分析專家。請根據提供的 PDF 文字內容，生成 3-10 個主要的學習主題大綱。
+      const systemPrompt = `你是一位專業的教育內容分析專家。請根據提供的 PDF 文字內容，分析並生成 3-10 個主要的學習主題大綱。
 
-要求：
-1. 每個主題應該涵蓋文件中的重要概念
-2. 主題名稱要清晰明確，適合作為出題範圍
-3. 請按重要性排序
-4. 只回傳 JSON 陣列格式，不要有其他說明
+重要要求：
+1. 必須完全基於提供的PDF內容，不可以憑空創造主題
+2. 每個主題應該對應文件中實際存在的章節或概念
+3. 主題名稱要清晰明確，適合作為出題範圍
+4. 請按文件中出現的順序或重要性排序
+5. 只回傳 JSON 陣列格式，不要有其他說明
 
 回傳格式：
 [
-  {"title": "主題1名稱", "level": 1},
-  {"title": "主題2名稱", "level": 1},
-  {"title": "主題3名稱", "level": 1}
+  {"title": "基於實際內容的主題1", "level": 1},
+  {"title": "基於實際內容的主題2", "level": 1},
+  {"title": "基於實際內容的主題3", "level": 1}
 ]`;
 
-      const userPrompt = `請分析以下 PDF 內容並生成主要學習主題：\n\n${textContent.substring(0, 3000)}...`;
+      const userPrompt = `請分析以下 PDF 內容並生成主要學習主題，必須完全基於實際內容：\n\n${textContent}`;
 
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
@@ -86,17 +141,17 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
     }
   };
 
-  // 提取 PDF 文字內容
+  // 提取 PDF 文字內容（前面幾頁）
   const extractPDFText = async (pdf: any): Promise<string> => {
     let fullText = '';
-    const maxPages = Math.min(pdf.numPages, 10); // 只處理前10頁以避免過長
+    const maxPages = Math.min(pdf.numPages, 5); // 只處理前5頁以獲取更完整的內容
     
     for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
       try {
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
         const pageText = textContent.items.map((item: any) => item.str).join(' ');
-        fullText += pageText + '\n';
+        fullText += `第${pageNum}頁內容：\n${pageText}\n\n`;
       } catch (pageError) {
         console.warn(`無法提取第 ${pageNum} 頁文字:`, pageError);
       }
@@ -121,31 +176,35 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
       
       console.log('PDF 載入成功，頁數:', pdf.numPages);
       
-      // 提取文字內容
+      // 第一階段：嘗試提取內建大綱
+      const builtInOutline = await extractBuiltInOutline(pdf);
+      
+      if (builtInOutline.length > 0) {
+        setOutline(builtInOutline);
+        setExtractionMethod('built-in');
+        toast({
+          title: "大綱提取成功",
+          description: `已從 PDF 提取 ${builtInOutline.length} 個章節大綱`,
+        });
+        return;
+      }
+      
+      // 第二階段：使用 AI 分析內容生成大綱
+      console.log('內建大綱不存在，開始提取文字內容...');
       const textContent = await extractPDFText(pdf);
       
-      if (textContent.trim().length > 100) {
-        // 使用 AI 生成大綱
+      if (textContent.trim().length > 200) {
         const aiOutline = await generateOutlineWithAI(textContent);
         
         if (aiOutline.length > 0) {
           setOutline(aiOutline);
+          setExtractionMethod('ai-generated');
           toast({
-            title: "大綱生成成功",
-            description: `AI 已為您生成 ${aiOutline.length} 個學習主題`,
+            title: "AI 大綱生成成功",
+            description: `AI 已根據 PDF 內容生成 ${aiOutline.length} 個學習主題`,
           });
         } else {
-          // AI 生成失敗時的備用大綱
-          setOutline([
-            { title: "核心概念與基礎理論", level: 1 },
-            { title: "實務應用與案例分析", level: 1 },
-            { title: "相關法規與標準", level: 1 },
-            { title: "發展趨勢與未來展望", level: 1 }
-          ]);
-          toast({
-            title: "使用預設大綱",
-            description: "已為您提供通用的學習主題大綱",
-          });
+          throw new Error('AI 無法從 PDF 內容生成有效大綱');
         }
       } else {
         throw new Error('PDF 文字內容過少，無法生成有意義的大綱');
@@ -154,17 +213,12 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
     } catch (error) {
       console.error('PDF 解析錯誤:', error);
       
-      // 提供備用大綱
-      setOutline([
-        { title: "第一章：基礎概念", level: 1 },
-        { title: "第二章：核心理論", level: 1 },
-        { title: "第三章：實務應用", level: 1 },
-        { title: "第四章：案例研究", level: 1 }
-      ]);
+      setOutline([]);
+      setExtractionMethod('failed');
       
       toast({
-        title: "PDF 解析失敗",
-        description: "已為您提供預設的學習主題，您仍可以選擇進行出題",
+        title: "PDF 大綱提取失敗",
+        description: "無法提取或生成 PDF 大綱，請手動輸入章節名稱進行出題",
         variant: "destructive",
       });
     } finally {
@@ -249,6 +303,12 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
         <CardTitle className="text-lg flex items-center gap-2">
           <FileText className="h-5 w-5 text-green-600" />
           選擇出題範圍
+          {extractionMethod === 'built-in' && (
+            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">PDF大綱</span>
+          )}
+          {extractionMethod === 'ai-generated' && (
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">AI生成</span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -256,13 +316,21 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
-              <p className="text-sm text-gray-600">AI 正在分析 PDF 內容並生成學習大綱...</p>
+              <p className="text-sm text-gray-600">
+                {extractionMethod === 'built-in' ? 
+                  '正在提取 PDF 內建大綱...' : 
+                  'AI 正在分析 PDF 內容並生成學習大綱...'
+                }
+              </p>
             </div>
           </div>
         ) : outline.length > 0 ? (
           <div className="space-y-2">
             <p className="text-sm text-gray-600 mb-3">
-              AI 已為您分析並生成以下學習主題，請選擇要出題的範圍：
+              {extractionMethod === 'built-in' 
+                ? '已提取 PDF 內建大綱，請選擇要出題的範圍：'
+                : 'AI 已根據 PDF 內容生成以下學習主題，請選擇要出題的範圍：'
+              }
             </p>
             {outline.map((item, index) => renderOutlineItem(item, index))}
             
@@ -281,7 +349,7 @@ export const PDFOutlineSelector: React.FC<PDFOutlineSelectorProps> = ({
           <div className="text-center py-8">
             <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
             <p className="text-sm text-gray-600">
-              無法生成學習大綱
+              無法提取或生成 PDF 大綱
               <br />
               <span className="text-xs">請手動輸入章節名稱進行出題</span>
             </p>

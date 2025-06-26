@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { ChevronDown, Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { WeightingSystem } from './WeightingSystem';
 import { PDFOutlineSelector } from './PDFOutlineSelector';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface SampleQuestion {
   id: string;
@@ -64,12 +65,15 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   onParametersChange,
   uploadedFile
 }) => {
+  const [advancedSettingsEnabled, setAdvancedSettingsEnabled] = useState(false);
+
   const updateParameter = <K extends keyof Parameters,>(key: K, value: Parameters[K]) => {
     onParametersChange({
       ...parameters,
       [key]: value
     });
   };
+
   const updateQuestionCount = (newCount: number) => {
     // 更新題目數量時，同時更新權重配置中的相關數量
     const updatedConfig = {
@@ -85,6 +89,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
       weightingConfig: updatedConfig
     });
   };
+
   const updateWeightingConfig = (config: WeightingConfig) => {
     updateParameter('weightingConfig', config);
   };
@@ -96,14 +101,29 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
     updateParameter('chapter', topicsString);
   };
 
+  // 獲取有效的進階設定配置
+  const getEffectiveAdvancedConfig = () => {
+    if (!advancedSettingsEnabled) {
+      return {
+        difficultyDistribution: { easy: 20, medium: 60, hard: 20 },
+        cognitiveDistribution: { remember: 20, understand: 40, apply: 30, analyze: 10 },
+        questionTypeWeights: { multipleChoice: 70, trueFalse: 15, shortAnswer: 10, essay: 5 },
+        keywords: '',
+        sampleQuestions: []
+      };
+    }
+    return {
+      difficultyDistribution: parameters.weightingConfig.difficultyDistribution,
+      cognitiveDistribution: parameters.weightingConfig.cognitiveDistribution,
+      questionTypeWeights: parameters.weightingConfig.questionTypeWeights,
+      keywords: parameters.keywords || '',
+      sampleQuestions: parameters.sampleQuestions
+    };
+  };
+
   // 檢查是否啟用進階難度設定
   const isAdvancedDifficultyEnabled = () => {
-    const {
-      easy,
-      medium,
-      hard
-    } = parameters.weightingConfig.difficultyDistribution;
-    return !(easy === 20 && medium === 60 && hard === 20);
+    return advancedSettingsEnabled;
   };
 
   // 計算難度分佈的總題數
@@ -112,7 +132,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
       easy,
       medium,
       hard
-    } = parameters.weightingConfig.difficultyDistribution;
+    } = getEffectiveAdvancedConfig().difficultyDistribution;
     return Math.round(parameters.questionCount * easy / 100) + Math.round(parameters.questionCount * medium / 100) + Math.round(parameters.questionCount * hard / 100);
   };
 
@@ -123,7 +143,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
       understand,
       apply,
       analyze
-    } = parameters.weightingConfig.cognitiveDistribution;
+    } = getEffectiveAdvancedConfig().cognitiveDistribution;
     return Math.round(parameters.questionCount * remember / 100) + Math.round(parameters.questionCount * understand / 100) + Math.round(parameters.questionCount * apply / 100) + Math.round(parameters.questionCount * analyze / 100);
   };
 
@@ -141,7 +161,8 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
       updateParameter('weightingConfig', newConfig);
     }
   }, [parameters.chapter]);
-  return <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       {/* 基本設定 */}
       <Card>
         <CardHeader>
@@ -241,15 +262,17 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                 className="w-full" 
               />
             </div>
-            <div className="text-xs text-gray-500 mt-2 space-y-1">
-              <div>難度分佈總計：{getDifficultyTotal()} 題</div>
-              <div>認知層次總計：{getCognitiveTotal()} 題</div>
-              {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && (
-                <div className="text-amber-600 font-medium">
-                  ⚠️ 總題數不一致，請調整進階設定中的百分比
-                </div>
-              )}
-            </div>
+            {advancedSettingsEnabled && (
+              <div className="text-xs text-gray-500 mt-2 space-y-1">
+                <div>難度分佈總計：{getDifficultyTotal()} 題</div>
+                <div>認知層次總計：{getCognitiveTotal()} 題</div>
+                {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && (
+                  <div className="text-amber-600 font-medium">
+                    ⚠️ 總題數不一致，請調整進階設定中的百分比
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 題型說明區塊 */}
@@ -281,66 +304,77 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
         />
       )}
 
-      {/* 進階設定 - 可摺疊 */}
-      <Collapsible>
-        <CollapsibleTrigger className="w-full">
-          <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span>進階設定</span>
-                <ChevronDown className="h-5 w-5" />
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-6 mt-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start gap-2">
-              <Info className="h-4 w-4 text-blue-600 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">數量對應說明：</p>
-                <p>基本設定的題目數量應等於難度分佈和認知層次各自的總題數。調整百分比時請確保總和為 100%，系統會自動計算對應題數。</p>
+      {/* 進階設定 - 勾選啟用 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Settings2 className="h-5 w-5 text-purple-600" />
+              進階設定
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="advanced-settings"
+                checked={advancedSettingsEnabled}
+                onCheckedChange={setAdvancedSettingsEnabled}
+              />
+              <Label htmlFor="advanced-settings" className="text-sm font-medium">
+                啟用進階設定
+              </Label>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        {advancedSettingsEnabled && (
+          <CardContent className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium mb-1">數量對應說明：</p>
+                  <p>基本設定的題目數量應等於難度分佈和認知層次各自的總題數。調整百分比時請確保總和為 100%，系統會自動計算對應題數。</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 關鍵字設定 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Settings2 className="h-5 w-5 text-purple-600" />
-                關鍵字聚焦
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div>
-                <Label htmlFor="keywords">出題關鍵字</Label>
-                <Input 
-                  id="keywords" 
-                  placeholder="例如：機器學習, 深度學習, 神經網路" 
-                  value={parameters.keywords || ''} 
-                  onChange={e => updateParameter('keywords', e.target.value)} 
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  輸入希望題目聚焦的關鍵字，用逗號分隔多個關鍵字。這將幫助 AI 生成更符合特定主題的題目。
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            {/* 關鍵字設定 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Settings2 className="h-5 w-5 text-purple-600" />
+                  關鍵字聚焦
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div>
+                  <Label htmlFor="keywords">出題關鍵字</Label>
+                  <Input 
+                    id="keywords" 
+                    placeholder="例如：機器學習, 深度學習, 神經網路" 
+                    value={parameters.keywords || ''} 
+                    onChange={e => updateParameter('keywords', e.target.value)} 
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    輸入希望題目聚焦的關鍵字，用逗號分隔多個關鍵字。這將幫助 AI 生成更符合特定主題的題目。
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* 樣題參考 */}
-          <SampleQuestions 
-            sampleQuestions={parameters.sampleQuestions} 
-            onSampleQuestionsChange={questions => updateParameter('sampleQuestions', questions)} 
-          />
+            {/* 樣題參考 */}
+            <SampleQuestions 
+              sampleQuestions={parameters.sampleQuestions} 
+              onSampleQuestionsChange={questions => updateParameter('sampleQuestions', questions)} 
+            />
 
-          {/* 權重分配 */}
-          <WeightingSystem 
-            config={parameters.weightingConfig} 
-            onConfigChange={updateWeightingConfig} 
-            totalQuestions={parameters.questionCount} 
-          />
-        </CollapsibleContent>
-      </Collapsible>
-    </div>;
+            {/* 權重分配 */}
+            <WeightingSystem 
+              config={parameters.weightingConfig} 
+              onConfigChange={updateWeightingConfig} 
+              totalQuestions={parameters.questionCount} 
+            />
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
 };
