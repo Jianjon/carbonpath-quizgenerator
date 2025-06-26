@@ -1,12 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
 import { QuestionDisplay } from './QuestionDisplay';
+import { APIKeySettings } from './APIKeySettings';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, FileText, Settings, Zap } from 'lucide-react';
+import { Brain, FileText, Settings, Zap, Key } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SampleQuestion {
   id: string;
@@ -57,6 +58,7 @@ interface QuestionData {
 
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [apiKey, setApiKey] = useState<string>('');
   const [parameters, setParameters] = useState({
     chapter: '',
     difficulty: 'medium',
@@ -87,12 +89,83 @@ export const QuestionBankGenerator = () => {
   const [generatedQuestions, setGeneratedQuestions] = useState<QuestionData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // 載入儲存的 API 密鑰
+  useEffect(() => {
+    loadApiKey();
+  }, []);
+
+  const loadApiKey = async () => {
+    try {
+      // 使用簡單的 user_id（可以是瀏覽器 session ID 或其他識別符）
+      const userId = getOrCreateUserId();
+      
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('api_key')
+        .eq('user_id', userId)
+        .eq('service_name', 'openai')
+        .single();
+
+      if (data && !error) {
+        setApiKey(data.api_key);
+      }
+    } catch (error) {
+      console.log('載入 API 密鑰時發生錯誤:', error);
+    }
+  };
+
+  const saveApiKey = async (key: string) => {
+    try {
+      const userId = getOrCreateUserId();
+      
+      // 先檢查是否已存在
+      const { data: existing } = await supabase
+        .from('api_keys')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('service_name', 'openai')
+        .single();
+
+      if (existing) {
+        // 更新現有記錄
+        await supabase
+          .from('api_keys')
+          .update({ 
+            api_key: key, 
+            updated_at: new Date().toISOString() 
+          })
+          .eq('user_id', userId)
+          .eq('service_name', 'openai');
+      } else {
+        // 建立新記錄
+        await supabase
+          .from('api_keys')
+          .insert({
+            user_id: userId,
+            service_name: 'openai',
+            api_key: key
+          });
+      }
+
+      setApiKey(key);
+    } catch (error) {
+      console.error('儲存 API 密鑰時發生錯誤:', error);
+      throw error;
+    }
+  };
+
+  const getOrCreateUserId = () => {
+    let userId = localStorage.getItem('quiz_creator_user_id');
+    if (!userId) {
+      userId = 'user_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('quiz_creator_user_id', userId);
+    }
+    return userId;
+  };
+
   const generateQuestionsWithAI = async () => {
-    // 注意：此處需要外部 API 密鑰配置
-    const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
-    
     if (!apiKey) {
-      alert('請在環境變數中設定 REACT_APP_OPENAI_API_KEY');
+      alert('請先設定 OpenAI API 密鑰');
       return;
     }
 
@@ -197,8 +270,7 @@ ${q.options ? q.options.join('\n') : ''}
 
     setIsGenerating(true);
     
-    // 檢查是否有 API 密鑰配置
-    if (process.env.REACT_APP_OPENAI_API_KEY) {
+    if (apiKey) {
       await generateQuestionsWithAI();
     } else {
       // 模擬生成（開發測試用）
@@ -231,8 +303,14 @@ ${q.options ? q.options.join('\n') : ''}
     <div className="max-w-7xl mx-auto space-y-8">
       {/* 工作台主體 */}
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* 左側：檔案上傳與基本設定 */}
+        {/* 左側：檔案上傳與 API 設定 */}
         <div className="lg:col-span-1 space-y-6">
+          {/* API 密鑰設定 */}
+          <APIKeySettings 
+            apiKey={apiKey}
+            onApiKeyChange={saveApiKey}
+          />
+
           {/* PDF 上傳區 */}
           <Card>
             <CardHeader>
@@ -261,9 +339,9 @@ ${q.options ? q.options.join('\n') : ''}
                 <Zap className="h-5 w-5 mr-2" />
                 {isGenerating ? '生成中...' : '開始生成題庫'}
               </Button>
-              {!process.env.REACT_APP_OPENAI_API_KEY && (
+              {!apiKey && (
                 <p className="text-sm text-amber-600 mt-2 text-center">
-                  ⚠️ 未配置 API 密鑰，將使用模擬資料生成
+                  ⚠️ 未設定 API 密鑰，將使用模擬資料生成
                 </p>
               )}
             </CardContent>
