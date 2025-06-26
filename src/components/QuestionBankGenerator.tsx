@@ -4,8 +4,10 @@ import { ParameterSettings } from './ParameterSettings';
 import { QuestionDisplay } from './QuestionDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, FileText, Settings, Zap } from 'lucide-react';
+import { Brain, FileText, Settings, Zap, Key, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SampleQuestion {
@@ -58,9 +60,12 @@ interface QuestionData {
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [apiKey, setApiKey] = useState<string>('');
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  const [tempApiKey, setTempApiKey] = useState<string>('');
   const [apiKeyStatus, setApiKeyStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
   const [parameters, setParameters] = useState({
     chapter: '',
+    chapterType: 'topic', // 'topic' 或 'pages'
     difficulty: 'medium',
     questionCount: 10,
     questionTypes: ['multiple-choice'],
@@ -136,24 +141,91 @@ export const QuestionBankGenerator = () => {
     return userId;
   };
 
+  const saveApiKey = async () => {
+    if (!tempApiKey.trim()) {
+      alert('請輸入 API 密鑰');
+      return;
+    }
+
+    try {
+      const userId = getOrCreateUserId();
+      
+      const { data, error } = await supabase.functions.invoke('manage-api-keys', {
+        body: {
+          method: 'POST',
+          userId,
+          serviceName: 'openai',
+          apiKey: tempApiKey
+        }
+      });
+
+      if (error) {
+        console.error('儲存 API 密鑰時發生錯誤:', error);
+        alert('儲存失敗，請稍後再試');
+        return;
+      }
+
+      setApiKey(tempApiKey);
+      setApiKeyStatus('found');
+      setTempApiKey('');
+      alert('API 密鑰已成功儲存');
+    } catch (error) {
+      console.error('儲存 API 密鑰時發生錯誤:', error);
+      alert('儲存失敗，請稍後再試');
+    }
+  };
+
+  // 取得最終使用的難度設定
+  const getEffectiveDifficulty = () => {
+    // 檢查進階設定是否啟用（有自訂分佈且不全為預設值）
+    const { easy, medium, hard } = parameters.weightingConfig.difficultyDistribution;
+    const hasAdvancedDifficulty = !(easy === 20 && medium === 60 && hard === 20);
+    
+    if (hasAdvancedDifficulty) {
+      return parameters.weightingConfig.difficultyDistribution;
+    }
+    
+    // 使用基本設定
+    switch (parameters.difficulty) {
+      case 'easy':
+        return { easy: 70, medium: 25, hard: 5 };
+      case 'medium':
+        return { easy: 20, medium: 60, hard: 20 };
+      case 'hard':
+        return { easy: 10, medium: 30, hard: 60 };
+      case 'expert':
+        return { easy: 5, medium: 15, hard: 80 };
+      default:
+        return { easy: 20, medium: 60, hard: 20 };
+    }
+  };
+
   const generateQuestionsWithAI = async () => {
     if (!apiKey) {
-      alert('系統尚未設定 OpenAI API 密鑰，請聯繫管理員');
+      alert('請先設定 OpenAI API 密鑰');
       return;
+    }
+
+    const effectiveDifficulty = getEffectiveDifficulty();
+    
+    // 根據章節類型調整提示詞
+    let chapterPrompt = '';
+    if (parameters.chapterType === 'pages' && parameters.chapter) {
+      chapterPrompt = `請針對 PDF 文件的第 ${parameters.chapter} 頁內容出題`;
+    } else if (parameters.chapter) {
+      chapterPrompt = `請針對「${parameters.chapter}」這個主題出題`;
     }
 
     const systemPrompt = `你是一位專業的教育測驗專家，需要根據提供的教材內容生成高品質的題目。
 
-請根據以下參數生成題目：
-- 章節：${parameters.chapter}
-- 難度：${parameters.difficulty}
+${chapterPrompt}
 - 題目數量：${parameters.questionCount}
 - 題型：${parameters.questionTypes.join(', ')}
 
 難度分佈：
-- 簡單題：${parameters.weightingConfig.difficultyDistribution.easy}%
-- 中等題：${parameters.weightingConfig.difficultyDistribution.medium}%
-- 困難題：${parameters.weightingConfig.difficultyDistribution.hard}%
+- 簡單題：${effectiveDifficulty.easy}%
+- 中等題：${effectiveDifficulty.medium}%
+- 困難題：${effectiveDifficulty.hard}%
 
 認知層次分佈（布魯姆分類法）：
 - 記憶：${parameters.weightingConfig.cognitiveDistribution.remember}%
@@ -199,7 +271,7 @@ ${q.options ? q.options.join('\n') : ''}
             },
             {
               role: 'user',
-              content: `請為「${parameters.chapter}」章節生成 ${parameters.questionCount} 道題目，PDF內容：${uploadedFile?.name || '未提供具體內容，請基於章節名稱生成相關題目'}`
+              content: `請生成 ${parameters.questionCount} 道題目，${uploadedFile?.name ? `參考 PDF 內容：${uploadedFile.name}` : chapterPrompt}`
             }
           ],
           temperature: 0.7,
@@ -291,31 +363,58 @@ ${q.options ? q.options.join('\n') : ''}
     <div className="max-w-full mx-auto">
       {/* 新版面配置：左1/3右2/3 */}
       <div className="flex gap-6 h-[calc(100vh-12rem)]">
-        {/* 左側：教材上傳與參數設定 (1/3) */}
+        {/* 左側：API 設定、教材上傳與參數設定 (1/3) */}
         <div className="w-1/3 space-y-6 overflow-y-auto pr-4">
-          {/* API 密鑰狀態顯示 */}
+          {/* API 密鑰設定 */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Settings className="h-5 w-5 text-purple-600" />
-                系統狀態
+                <Key className="h-5 w-5 text-blue-600" />
+                API 密鑰設定
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <div className={`text-sm font-medium ${getApiKeyStatusMessage().color}`}>
                   {getApiKeyStatusMessage().text}
                 </div>
+                
+                {apiKeyStatus !== 'found' && (
+                  <div className="space-y-3">
+                    <Label htmlFor="apiKey">OpenAI API 密鑰</Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="apiKey"
+                          type={showApiKey ? "text" : "password"}
+                          placeholder="請輸入您的 OpenAI API 密鑰"
+                          value={tempApiKey}
+                          onChange={(e) => setTempApiKey(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <Button onClick={saveApiKey} size="sm">
+                        儲存
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      密鑰將安全儲存在後台，僅用於生成題目
+                    </p>
+                  </div>
+                )}
+                
                 {apiKeyStatus === 'found' && (
                   <div className="text-xs text-gray-500">
-                    API 密鑰已載入，可以使用 AI 生成功能
+                    API 密鑰已設定，可以使用 AI 生成功能
                   </div>
                 )}
-                {apiKeyStatus === 'not_found' && (
-                  <div className="text-xs text-gray-500">
-                    需要管理員在後台設定 OpenAI API 密鑰
-                  </div>
-                )}
+                
                 {apiKeyStatus === 'error' && (
                   <button 
                     onClick={loadApiKey}
