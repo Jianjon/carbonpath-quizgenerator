@@ -102,14 +102,15 @@ export const useAutoSave = (
     try {
       const userIP = await getUserIP();
       const userAgent = navigator.userAgent;
+      let currentSessionId = sessionId;
       
       console.log('🔍 DEBUG: 使用者資訊');
       console.log('- IP:', userIP);
       console.log('- User Agent:', userAgent);
-      console.log('- 目前 Session ID:', sessionId);
+      console.log('- 目前 Session ID:', currentSessionId);
       
       // 如果還沒有 session，先創建一個
-      if (!sessionId) {
+      if (!currentSessionId) {
         console.log('⚡ DEBUG: 創建新的生成會話...');
         
         const sessionData = {
@@ -138,6 +139,7 @@ export const useAutoSave = (
         }
         
         console.log('✅ DEBUG: 會話創建成功:', session);
+        currentSessionId = session.id;
         setSessionId(session.id);
         
         // 準備題目資料以插入資料庫
@@ -219,8 +221,7 @@ export const useAutoSave = (
 
       console.log('🎉 DEBUG: 題目保存流程完全完成！');
       
-      // 驗證保存結果 - 修正這裡的錯誤
-      const currentSessionId = sessionId || session?.id;
+      // 驗證保存結果 - 使用 currentSessionId
       if (currentSessionId) {
         await verifyDataInDatabase(currentSessionId);
       }
