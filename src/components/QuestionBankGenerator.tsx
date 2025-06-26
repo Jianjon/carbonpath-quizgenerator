@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
@@ -8,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Brain, FileText, Settings, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
 
 interface SampleQuestion {
   id: string;
@@ -170,7 +170,7 @@ ${q.options ? q.options.join('\n') : ''}
 `).join('\n')}
 ` : ''}
 
-請以 JSON 格式回傳，每個題目包含：
+請務必以標準 JSON 格式回傳，每個題目包含：
 {
   "id": "題目編號",
   "content": "題目內容",
@@ -185,44 +185,70 @@ ${q.options ? q.options.join('\n') : ''}
   "source_pdf": "${uploadedFile?.name || ''}",
   "page_range": "${parameters.chapterType === 'pages' ? parameters.chapter : ''}",
   "tags": ["關鍵字1", "關鍵字2"]
-}`;
+}
+
+重要：請只回傳純 JSON 陣列，不要包含任何說明文字、HTML 標籤或其他內容。`;
 
     try {
-      const response = await fetch('/api/generate-questions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      console.log('開始呼叫 AI 生成題目...');
+      
+      const response = await supabase.functions.invoke('generate-questions', {
+        body: {
           systemPrompt,
           userPrompt: `請生成 ${parameters.questionCount} 道題目，${uploadedFile?.name ? `參考 PDF 內容：${uploadedFile.name}` : chapterPrompt}`,
           model: 'gpt-4o'
-        })
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`API 請求失敗：${response.status}`);
+      console.log('AI 回應:', response);
+
+      if (response.error) {
+        throw new Error(response.error.message || '呼叫 AI 服務失敗');
       }
 
-      const data = await response.json();
-      const content = data.generatedText;
-      
+      if (!response.data?.generatedText) {
+        throw new Error('AI 回應格式錯誤：缺少生成內容');
+      }
+
       let questions;
       try {
-        questions = JSON.parse(content);
-      } catch {
-        const jsonMatch = content.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          questions = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('無法解析 AI 回應');
-        }
+        // 先嘗試解析為 JSON
+        questions = JSON.parse(response.data.generatedText);
+        console.log('成功解析題目:', questions);
+      } catch (parseError) {
+        console.error('JSON 解析錯誤:', parseError);
+        throw new Error('無法解析 AI 生成的題目格式');
       }
 
-      setGeneratedQuestions(Array.isArray(questions) ? questions : [questions]);
+      // 確保是陣列格式
+      if (!Array.isArray(questions)) {
+        questions = [questions];
+      }
+
+      // 驗證題目格式
+      const validQuestions = questions.filter(q => 
+        q && q.content && q.correct_answer && q.explanation
+      );
+
+      if (validQuestions.length === 0) {
+        throw new Error('生成的題目格式不完整，請重新嘗試');
+      }
+
+      console.log('成功生成題目數量:', validQuestions.length);
+      setGeneratedQuestions(validQuestions);
+      
+      toast({
+        title: "生成成功",
+        description: `成功生成 ${validQuestions.length} 道題目`,
+      });
+
     } catch (error) {
       console.error('生成題目時發生錯誤:', error);
-      alert(`生成失敗：${error.message}`);
+      toast({
+        title: "生成失敗",
+        description: error.message || '未知錯誤，請重新嘗試',
+        variant: "destructive",
+      });
     }
   };
 
