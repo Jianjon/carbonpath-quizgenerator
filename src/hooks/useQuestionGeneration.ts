@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -103,8 +104,8 @@ export const useQuestionGeneration = () => {
     }
   ];
 
-  // 改善進度模擬，更平滑的進度更新
-  const simulateProgress = () => {
+  // 改善進度模擬，根據題目數量調整時間
+  const simulateProgress = (questionCount: number) => {
     let progress = 0;
     const steps = [
       '正在分析教材內容...',
@@ -115,16 +116,20 @@ export const useQuestionGeneration = () => {
       '最終格式化處理...'
     ];
     
+    // 根據題目數量調整進度間隔
+    const baseInterval = questionCount > 15 ? 1200 : questionCount > 10 ? 1000 : 800;
+    
     const progressInterval = setInterval(() => {
       if (progress < 90) {
-        progress += Math.random() * 10 + 5;
+        const increment = questionCount > 15 ? Math.random() * 5 + 3 : Math.random() * 10 + 5;
+        progress += increment;
         if (progress > 90) progress = 90;
         
         const stepIndex = Math.floor((progress / 90) * steps.length);
         setGenerationProgress(Math.round(progress));
         setGenerationStep(steps[stepIndex] || steps[steps.length - 1]);
       }
-    }, 800);
+    }, baseInterval);
     
     return progressInterval;
   };
@@ -298,7 +303,16 @@ export const useQuestionGeneration = () => {
     setGenerationProgress(0);
     setGenerationStep('🚀 開始分析教材內容...');
     
-    const progressInterval = simulateProgress();
+    // 檢查題目數量並給出建議
+    if (parameters.questionCount > 20) {
+      toast({
+        title: "建議調整題目數量",
+        description: "超過20題可能會影響生成品質，建議分批生成或減少到15題以下",
+        variant: "default"
+      });
+    }
+    
+    const progressInterval = simulateProgress(parameters.questionCount);
     
     let chapterPrompt = '';
     if (parameters.chapter) {
@@ -312,7 +326,7 @@ export const useQuestionGeneration = () => {
     const difficultyPrompt = getDifficultyPrompt(parameters.difficultyLevel || 'medium');
     const sampleStylePrompt = analyzeSampleStyle(parameters.sampleQuestions);
 
-    // 專門針對淨零iPAS考試的系統提示
+    // 針對大量題目優化的系統提示
     const systemPrompt = `你是專業的淨零iPAS考試題目設計師，專門製作符合iPAS認證標準的淨零碳排放相關考試題目。
 
 🎯 **出題目標**：
@@ -332,14 +346,15 @@ ${chapterPrompt}${keywordsPrompt}
 
 📊 **難度規劃**：${difficultyPrompt}
 
-⚡ **製作要求**：
+⚡ **重要製作要求**：
 1. 每道題目包含：清楚的題目描述、四個選項（A/B/C/D）、正確答案、簡要解析
 2. 題目表達自然直接，避免使用「根據講義」等字眼
 3. 專業術語使用準確，符合淨零碳排放專業領域
 4. 題目難度適合iPAS認證考試水準
 5. 包含實際案例和應用情境
+6. ${parameters.questionCount > 15 ? '由於題目數量較多，請確保每道題目都完整且格式一致' : ''}
 
-📝 **標準格式（僅返回JSON陣列）**：
+📝 **標準格式（僅返回JSON陣列，不要其他文字）**：
 [
   {
     "id": "1",
@@ -360,7 +375,7 @@ ${chapterPrompt}${keywordsPrompt}
 
 ${sampleStylePrompt}
 
-**請製作完整的 ${parameters.questionCount} 道淨零iPAS考試題目。**`;
+**請製作完整的 ${parameters.questionCount} 道淨零iPAS考試題目，確保每道題目都完整且JSON格式正確。**`;
 
     try {
       console.log('🎯 淨零iPAS題目生成開始');
@@ -373,7 +388,7 @@ ${sampleStylePrompt}
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請基於淨零iPAS考試標準製作 ${parameters.questionCount} 道選擇題。每道題目都要完整包含題目、四個選項、正確答案和解析。請學習提供的樣題風格，題目表達要自然直接，不要使用「根據講義」等字眼。請直接提供JSON格式回應。`,
+          userPrompt: `請基於淨零iPAS考試標準製作 ${parameters.questionCount} 道選擇題。每道題目都要完整包含題目、四個選項、正確答案和解析。請學習提供的樣題風格，題目表達要自然直接，不要使用「根據講義」等字眼。${parameters.questionCount > 15 ? '由於題目數量較多，請特別注意保持JSON格式完整。' : ''}請直接提供JSON格式回應，不要包含其他文字。`,
           model: 'gpt-4o-mini'
         }
       });
@@ -388,7 +403,9 @@ ${sampleStylePrompt}
         let errorMessage = '題目生成遇到問題';
         
         if (response.error.message) {
-          if (response.error.message.includes('內容政策') || response.error.message.includes('安全政策') || response.error.message.includes('拒絕')) {
+          if (response.error.message.includes('題目數量過多') || response.error.message.includes('減少到15題')) {
+            errorMessage = `題目數量過多導致生成問題，建議：\n1. 減少題目數量到15題以下\n2. 分批生成（例如先生成10題）\n3. 嘗試調整題目風格設定`;
+          } else if (response.error.message.includes('內容政策') || response.error.message.includes('安全政策') || response.error.message.includes('拒絕')) {
             errorMessage = '系統暫時無法處理此類教材內容，請嘗試：\n1. 調整出題風格設定\n2. 縮小頁數範圍\n3. 添加具體的學習重點關鍵字';
           } else if (response.error.message.includes('配額') || response.error.message.includes('quota')) {
             errorMessage = 'OpenAI API 使用額度不足，請檢查您的帳戶餘額';
@@ -415,7 +432,7 @@ ${sampleStylePrompt}
         console.log('✅ 題目解析成功:', questions.length, '道');
       } catch (parseError) {
         console.error('❌ 格式解析失敗:', parseError);
-        throw new Error(`題目格式處理失敗：${parseError.message}`);
+        throw new Error(`題目格式處理失敗：${parseError.message}。建議減少題目數量到10-15題重新嘗試。`);
       }
 
       if (!Array.isArray(questions)) {
@@ -437,7 +454,8 @@ ${sampleStylePrompt}
       console.log('📊 題目品質檢驗:', {
         原始數量: questions.length,
         有效數量: validQuestions.length,
-        目標數量: parameters.questionCount
+        目標數量: parameters.questionCount,
+        完成率: Math.round((validQuestions.length / parameters.questionCount) * 100) + '%'
       });
 
       if (validQuestions.length === 0) {
@@ -450,7 +468,9 @@ ${sampleStylePrompt}
       const successRate = validQuestions.length / parameters.questionCount;
       const successMessage = successRate >= 0.8 ? 
         `✅ 成功生成 ${validQuestions.length} 道完整題目` :
-        `⚠️ 生成 ${validQuestions.length} 道題目（期望：${parameters.questionCount}道）`;
+        successRate >= 0.6 ?
+        `⚠️ 生成 ${validQuestions.length} 道題目（期望：${parameters.questionCount}道），建議減少題目數量以提高成功率` :
+        `⚠️ 僅生成 ${validQuestions.length} 道題目（期望：${parameters.questionCount}道），強烈建議減少題目數量到15題以下`;
       
       toast({
         title: "生成完成",
@@ -458,10 +478,21 @@ ${sampleStylePrompt}
         variant: successRate >= 0.8 ? "default" : "destructive"
       });
 
+      // 如果成功率低，額外提示
+      if (successRate < 0.8 && parameters.questionCount > 15) {
+        setTimeout(() => {
+          toast({
+            title: "生成建議",
+            description: "大量題目生成可能不穩定，建議單次生成不超過15題以確保品質",
+            variant: "default"
+          });
+        }, 2000);
+      }
+
       setTimeout(() => {
         setGenerationProgress(0);
         setGenerationStep('');
-      }, 2000);
+      }, 3000);
 
       return validQuestions;
       
