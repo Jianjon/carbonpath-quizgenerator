@@ -299,7 +299,7 @@ export const useQuestionGeneration = () => {
     const shouldUseKeywords = checkKeywordRelevance(parameters.keywords || '', parameters.chapter);
     
     setGenerationProgress(0);
-    setGenerationStep('初始化生成參數...');
+    setGenerationStep('🚀 開始初始化...');
     
     const progressInterval = simulateProgress();
     
@@ -309,49 +309,46 @@ export const useQuestionGeneration = () => {
     }
     
     const keywordsPrompt = (shouldUseKeywords && parameters.keywords) ? 
-      `\n請特別聚焦在以下關鍵字相關的內容：${parameters.keywords}，但必須使用PDF原文的完整句子和段落` : 
+      `\n🎯 關鍵重點：${parameters.keywords}（必須嚴格使用PDF原文完整句子）` : 
       (parameters.keywords ? '\n（關鍵字與指定範圍關聯性較低，已忽略關鍵字限制）' : '');
     
     const stylePrompt = getQuestionStylePrompt(parameters.questionStyle);
     const difficultyPrompt = getDifficultyPrompt(parameters.difficultyLevel || 'medium');
     const sampleStylePrompt = analyzeSampleStyle(parameters.sampleQuestions);
 
-    // 更強的系統提示
+    // 更強化的系統提示
     const systemPrompt = `你是專業的教育測驗專家，請根據PDF原文內容生成高品質題目。
 
-📋 核心要求：
+🎯 **核心任務**：
 ${chapterPrompt}${keywordsPrompt}
-- 題目數量：必須生成完整的 ${parameters.questionCount} 道題目
+- 題目數量：**嚴格生成 ${parameters.questionCount} 道完整題目**
 - 題型：選擇題（四選一，選項標示為 A、B、C、D）
 
-🎯 **內容完整度要求（關鍵）**：
-- 題目描述必須使用PDF中的完整句子，不可只提取關鍵字
-- 所有專業術語與PDF原文完全一致，嚴禁隨意改寫
-- 選項要基於PDF具體內容，不可憑空創造
-- 解析要詳細引用PDF原文，提供完整依據
-- 小範圍出題時，要深度使用該範圍的所有相關內容
+📋 **內容完整度要求（最重要）**：
+- 題目描述必須直接引用PDF中的完整句子和段落
+- 專業術語必須與PDF原文完全一致，禁止改寫
+- 選項內容基於PDF具體描述，不可憑空創造
+- 解析要大量引用PDF原文，提供完整依據
+- 範圍越小，越要深度使用該範圍內的所有相關內容
 
-🎨 題目風格：
-${stylePrompt}
+🎨 題目風格：${stylePrompt}
 
-📊 難度分布：
-${difficultyPrompt}
+📊 難度要求：${difficultyPrompt}
 
-⚠️ **關鍵生成規則**：
+⚠️ **生成規則（必須遵守）**：
 1. 必須生成完整的 ${parameters.questionCount} 道題目
-2. 每題都要有完整內容：題目、四個選項、正確答案、詳細解析
-3. 絕對不可中途停止或只生成部分題目
-4. 如果內容不足，從不同角度重新組織PDF內容
+2. 每題包含：題目、四個選項、正確答案、詳細解析
+3. 絕對不可中途停止生成
+4. 如果PDF內容不足，從不同角度重新組織內容
 
-📝 回傳格式必須是完整的 JSON 陣列，不要任何其他文字：
-
+📝 **回傳格式（只要JSON陣列）**：
 [
   {
     "id": "1",
-    "content": "完整題目內容（使用PDF原文句子）",
+    "content": "題目內容（使用PDF完整句子）",
     "options": {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"},
     "correct_answer": "A",
-    "explanation": "詳細解析（大量引用PDF原文）",
+    "explanation": "詳細解析（引用PDF原文）",
     "question_type": "choice",
     "difficulty": 0.5,
     "difficulty_label": "中",
@@ -365,34 +362,44 @@ ${difficultyPrompt}
 
 ${sampleStylePrompt}
 
-**最終確認：必須生成 ${parameters.questionCount} 道完整題目！**`;
+**最終確認：必須生成完整的 ${parameters.questionCount} 道題目！**`;
 
     try {
-      console.log('🎯 生成目標:', parameters.questionCount, '道題目');
-      console.log('📝 開始呼叫 AI...');
+      console.log('🎯 目標生成:', parameters.questionCount, '道題目');
+      console.log('📋 參數設定:', {
+        章節: parameters.chapter,
+        風格: parameters.questionStyle,
+        關鍵字: parameters.keywords,
+        樣題數量: parameters.sampleQuestions.length
+      });
       
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請嚴格按照系統要求生成 ${parameters.questionCount} 道完整的選擇題。每題都必須包含完整的題目描述、四個選項、正確答案和詳細解析。絕對不可只生成一題或部分題目！${parameters.sampleQuestions.length > 0 ? '請學習樣題風格但內容完全來自PDF。' : ''}只回傳完整的JSON陣列，不要其他文字。`,
+          userPrompt: `請嚴格按照要求生成 ${parameters.questionCount} 道完整題目。每題都必須包含完整的題目描述、四個選項、正確答案和詳細解析。只回傳JSON陣列，不要其他文字。${parameters.sampleQuestions.length > 0 ? '請學習樣題風格。' : ''}`,
           model: 'gpt-4o-mini'
         }
       });
 
       clearInterval(progressInterval);
       
-      console.log('📨 AI 回應:', response);
+      console.log('📨 收到回應:', response);
 
       if (response.error) {
         console.error('❌ Supabase function error:', response.error);
         
-        // 提供更具體的錯誤信息
+        // 根據錯誤類型提供具體的解決建議
         let errorMessage = '生成題目時發生錯誤';
+        
         if (response.error.message) {
-          if (response.error.message.includes('non-2xx status code')) {
-            errorMessage = 'AI 服務暫時不可用，請稍後重試';
-          } else if (response.error.message.includes('JSON')) {
-            errorMessage = 'AI 回應格式錯誤，請重新生成';
+          if (response.error.message.includes('配額') || response.error.message.includes('quota')) {
+            errorMessage = 'OpenAI API 配額已用完，請檢查您的 OpenAI 帳戶餘額';
+          } else if (response.error.message.includes('金鑰') || response.error.message.includes('key')) {
+            errorMessage = 'OpenAI API 金鑰無效，請檢查設定';
+          } else if (response.error.message.includes('權限') || response.error.message.includes('permission')) {
+            errorMessage = 'OpenAI API 權限不足，請檢查帳戶狀態';
+          } else if (response.error.message.includes('格式') || response.error.message.includes('JSON')) {
+            errorMessage = 'AI 回應格式異常，請重新生成';
           } else {
             errorMessage = response.error.message;
           }
@@ -406,7 +413,7 @@ ${sampleStylePrompt}
       }
 
       setGenerationProgress(95);
-      setGenerationStep('驗證題目品質...');
+      setGenerationStep('✅ 驗證題目品質...');
 
       let questions;
       try {
@@ -425,26 +432,30 @@ ${sampleStylePrompt}
         q && 
         typeof q === 'object' && 
         q.content && 
-        q.content.length > 15 && 
+        q.content.length > 10 && 
         q.correct_answer && 
         q.explanation && 
-        q.explanation.length > 25 && 
+        q.explanation.length > 20 && 
         q.options &&
-        Object.keys(q.options).length >= 4
+        Object.keys(q.options).length >= 2
       );
 
-      console.log('✅ 有效題目:', validQuestions.length, '/', parameters.questionCount);
+      console.log('📊 品質檢查結果:', {
+        生成數量: questions.length,
+        有效數量: validQuestions.length,
+        目標數量: parameters.questionCount
+      });
 
       if (validQuestions.length === 0) {
         throw new Error('生成的題目格式不完整，請重新嘗試');
       }
 
       setGenerationProgress(100);
-      setGenerationStep('生成完成！');
+      setGenerationStep('🎉 生成完成！');
       
       const successMessage = validQuestions.length >= parameters.questionCount ? 
-        `成功生成 ${validQuestions.length} 道完整題目` :
-        `生成 ${validQuestions.length} 道題目（目標：${parameters.questionCount}道）`;
+        `✅ 成功生成 ${validQuestions.length} 道完整題目` :
+        `⚠️ 生成 ${validQuestions.length} 道題目（目標：${parameters.questionCount}道）`;
       
       toast({
         title: "生成完成",
@@ -455,9 +466,10 @@ ${sampleStylePrompt}
       setTimeout(() => {
         setGenerationProgress(0);
         setGenerationStep('');
-      }, 3000);
+      }, 2000);
 
       return validQuestions;
+      
     } catch (error) {
       console.error('❌ 生成失敗:', error);
       clearInterval(progressInterval);
@@ -466,7 +478,7 @@ ${sampleStylePrompt}
       
       toast({
         title: "生成失敗",
-        description: error.message || '請檢查網路連接後重新嘗試',
+        description: error.message || '請檢查 OpenAI API 設定後重新嘗試',
         variant: "destructive"
       });
       throw error;
