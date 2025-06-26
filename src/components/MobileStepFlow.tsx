@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,16 @@ import {
   Check,
   FileText
 } from 'lucide-react';
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { SidebarContentComponent } from './SidebarContentComponent';
 import { QuestionDisplay } from './QuestionDisplay';
 
@@ -43,6 +54,7 @@ export const MobileStepFlow: React.FC<MobileStepFlowProps> = ({
   onQuestionsChange
 }) => {
   const [currentStep, setCurrentStep] = useState<FlowStep>('setup');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // 當有題目生成時，自動切換到結果頁面
   React.useEffect(() => {
@@ -53,10 +65,12 @@ export const MobileStepFlow: React.FC<MobileStepFlowProps> = ({
 
   const handleGenerate = async () => {
     await onGenerate();
+    setIsDrawerOpen(false);
   };
 
   const goToSetup = () => {
     setCurrentStep('setup');
+    setIsDrawerOpen(true);
   };
 
   const canProceed = uploadedFile || parameters.chapter;
@@ -68,7 +82,7 @@ export const MobileStepFlow: React.FC<MobileStepFlowProps> = ({
         <div className="flex items-center justify-between max-w-sm mx-auto">
           <div 
             className="flex items-center space-x-2 cursor-pointer"
-            onClick={goToSetup}
+            onClick={() => setIsDrawerOpen(true)}
           >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
               currentStep === 'setup' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
@@ -99,6 +113,42 @@ export const MobileStepFlow: React.FC<MobileStepFlowProps> = ({
         </div>
       </div>
 
+      {/* 設定側邊欄 Drawer */}
+      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              題庫生成設定
+            </DrawerTitle>
+            <DrawerDescription>
+              請上傳教材並設定生成參數
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 overflow-y-auto flex-1">
+            <SidebarContentComponent
+              uploadedFile={uploadedFile}
+              setUploadedFile={setUploadedFile}
+              handleUploadComplete={handleUploadComplete}
+              parameters={parameters}
+              setParameters={setParameters}
+              generatedQuestions={generatedQuestions}
+              isGenerating={isGenerating}
+              generationProgress={generationProgress}
+              generationStep={generationStep}
+              onGenerate={handleGenerate}
+            />
+          </div>
+          <DrawerFooter>
+            <DrawerClose asChild>
+              <Button variant="outline" className="w-full">
+                關閉設定
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+
       {/* 主要內容區域 */}
       <div className="flex-1 p-4">
         {currentStep === 'setup' && (
@@ -113,21 +163,29 @@ export const MobileStepFlow: React.FC<MobileStepFlowProps> = ({
               </p>
             </div>
 
-            {/* 設定內容 */}
+            {/* 設定按鈕 */}
             <Card>
-              <CardContent className="p-0">
-                <SidebarContentComponent
-                  uploadedFile={uploadedFile}
-                  setUploadedFile={setUploadedFile}
-                  handleUploadComplete={handleUploadComplete}
-                  parameters={parameters}
-                  setParameters={setParameters}
-                  generatedQuestions={generatedQuestions}
-                  isGenerating={isGenerating}
-                  generationProgress={generationProgress}
-                  generationStep={generationStep}
-                  onGenerate={handleGenerate}
-                />
+              <CardContent className="p-6 text-center">
+                <Button 
+                  onClick={() => setIsDrawerOpen(true)}
+                  className="w-full flex items-center gap-2 mb-4"
+                  size="lg"
+                >
+                  <Settings className="h-5 w-5" />
+                  開啟題庫設定
+                </Button>
+                
+                {uploadedFile && (
+                  <p className="text-sm text-green-600 mb-2">
+                    ✓ 已上傳: {uploadedFile.name}
+                  </p>
+                )}
+                
+                {parameters.chapter && (
+                  <p className="text-sm text-green-600 mb-2">
+                    ✓ 頁數範圍: {parameters.chapter}
+                  </p>
+                )}
               </CardContent>
             </Card>
 
