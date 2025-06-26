@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -74,6 +75,23 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
     });
   };
 
+  const updateQuestionCount = (newCount: number) => {
+    // 更新題目數量時，同時更新權重配置中的相關數量
+    const updatedConfig = {
+      ...parameters.weightingConfig,
+      chapterWeights: parameters.weightingConfig.chapterWeights.map(chapter => ({
+        ...chapter,
+        questions: Math.round((chapter.weight / 100) * newCount)
+      }))
+    };
+    
+    onParametersChange({
+      ...parameters,
+      questionCount: newCount,
+      weightingConfig: updatedConfig
+    });
+  };
+
   const toggleQuestionType = (type: string, checked: boolean) => {
     const newTypes = checked
       ? [...parameters.questionTypes, type]
@@ -89,6 +107,23 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   const isAdvancedDifficultyEnabled = () => {
     const { easy, medium, hard } = parameters.weightingConfig.difficultyDistribution;
     return !(easy === 20 && medium === 60 && hard === 20);
+  };
+
+  // 計算難度分佈的總題數
+  const getDifficultyTotal = () => {
+    const { easy, medium, hard } = parameters.weightingConfig.difficultyDistribution;
+    return Math.round(parameters.questionCount * easy / 100) + 
+           Math.round(parameters.questionCount * medium / 100) + 
+           Math.round(parameters.questionCount * hard / 100);
+  };
+
+  // 計算認知層次的總題數
+  const getCognitiveTotal = () => {
+    const { remember, understand, apply, analyze } = parameters.weightingConfig.cognitiveDistribution;
+    return Math.round(parameters.questionCount * remember / 100) + 
+           Math.round(parameters.questionCount * understand / 100) + 
+           Math.round(parameters.questionCount * apply / 100) + 
+           Math.round(parameters.questionCount * analyze / 100);
   };
 
   // 初始化章節權重（如果章節名稱改變）
@@ -191,11 +226,22 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             </div>
 
             <div>
-              <Label>題目數量：{parameters.questionCount} 題</Label>
+              <Label>
+                題目數量：{parameters.questionCount} 題
+                <div className="text-xs text-gray-500 mt-1 space-y-1">
+                  <div>難度分佈總計：{getDifficultyTotal()} 題</div>
+                  <div>認知層次總計：{getCognitiveTotal()} 題</div>
+                  {(getDifficultyTotal() !== parameters.questionCount || getCognitiveTotal() !== parameters.questionCount) && (
+                    <div className="text-amber-600 font-medium">
+                      ⚠️ 總題數不一致，請調整進階設定中的百分比
+                    </div>
+                  )}
+                </div>
+              </Label>
               <div className="mt-2">
                 <Slider
                   value={[parameters.questionCount]}
-                  onValueChange={(value) => updateParameter('questionCount', value[0])}
+                  onValueChange={(value) => updateQuestionCount(value[0])}
                   max={50}
                   min={5}
                   step={5}
@@ -250,13 +296,13 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             <div className="flex items-start gap-2">
               <Info className="h-4 w-4 text-blue-600 mt-0.5" />
               <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">優先級說明：</p>
-                <p>若進階設定中的難度分佈有自訂值，將優先使用進階設定；否則使用基本設定的難度等級。</p>
+                <p className="font-medium mb-1">數量對應說明：</p>
+                <p>基本設定的題目數量應等於難度分佈和認知層次各自的總題數。調整百分比時請確保總和為 100%，系統會自動計算對應題數。</p>
               </div>
             </div>
           </div>
 
-          {/* 關鍵字設定 - 新增 */}
+          {/* 關鍵字設定 */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">

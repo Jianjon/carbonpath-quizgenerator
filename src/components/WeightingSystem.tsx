@@ -1,11 +1,10 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Target, Brain } from 'lucide-react';
+import { BarChart3, Target, Brain, AlertTriangle } from 'lucide-react';
 
 interface ChapterWeight {
   name: string;
@@ -79,6 +78,27 @@ export const WeightingSystem: React.FC<WeightingSystemProps> = ({
         [type]: value
       }
     });
+  };
+
+  // 計算難度分佈總和
+  const getDifficultySum = () => {
+    const { easy, medium, hard } = config.difficultyDistribution;
+    return easy + medium + hard;
+  };
+
+  // 計算認知層次總和
+  const getCognitiveSum = () => {
+    const { remember, understand, apply, analyze } = config.cognitiveDistribution;
+    return remember + understand + apply + analyze;
+  };
+
+  // 計算實際題數
+  const getDifficultyQuestionCount = (percentage: number) => {
+    return Math.round(totalQuestions * percentage / 100);
+  };
+
+  const getCognitiveQuestionCount = (percentage: number) => {
+    return Math.round(totalQuestions * percentage / 100);
   };
 
   const getDifficultyColor = (type: string) => {
@@ -155,7 +175,7 @@ export const WeightingSystem: React.FC<WeightingSystemProps> = ({
                       {key === 'easy' ? '簡單題' : key === 'medium' ? '中等題' : '困難題'}
                     </Label>
                     <Badge className={getDifficultyColor(key)}>
-                      {value}% ({Math.round(totalQuestions * value / 100)} 題)
+                      {value}% ({getDifficultyQuestionCount(value)} 題)
                     </Badge>
                   </div>
                   <Slider
@@ -169,8 +189,21 @@ export const WeightingSystem: React.FC<WeightingSystemProps> = ({
                 </div>
               ))}
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">
+            
+            {/* 難度分佈總和檢查 */}
+            <div className={`p-3 rounded-lg ${getDifficultySum() === 100 ? 'bg-green-50' : 'bg-amber-50'}`}>
+              <div className="flex items-center gap-2">
+                {getDifficultySum() === 100 ? (
+                  <Target className="h-4 w-4 text-green-600" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                )}
+                <p className={`text-sm ${getDifficultySum() === 100 ? 'text-green-700' : 'text-amber-700'}`}>
+                  難度總和：{getDifficultySum()}% 
+                  {getDifficultySum() !== 100 && ` (建議調整至 100%)`}
+                </p>
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
                 建議比例：簡單 20% | 中等 60% | 困難 20%
               </p>
             </div>
@@ -187,7 +220,7 @@ export const WeightingSystem: React.FC<WeightingSystemProps> = ({
                        key === 'apply' ? '應用' : '分析'}
                     </Label>
                     <Badge className={getCognitiveColor(key)}>
-                      {value}% ({Math.round(totalQuestions * value / 100)} 題)
+                      {value}% ({getCognitiveQuestionCount(value)} 題)
                     </Badge>
                   </div>
                   <Slider
@@ -201,9 +234,21 @@ export const WeightingSystem: React.FC<WeightingSystemProps> = ({
                 </div>
               ))}
             </div>
-            <div className="p-3 bg-indigo-50 rounded-lg">
-              <p className="text-sm text-indigo-700 flex items-center">
-                <Brain className="h-4 w-4 mr-1" />
+            
+            {/* 認知層次總和檢查 */}
+            <div className={`p-3 rounded-lg ${getCognitiveSum() === 100 ? 'bg-green-50' : 'bg-amber-50'}`}>
+              <div className="flex items-center gap-2">
+                {getCognitiveSum() === 100 ? (
+                  <Brain className="h-4 w-4 text-green-600" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                )}
+                <p className={`text-sm ${getCognitiveSum() === 100 ? 'text-green-700' : 'text-amber-700'}`}>
+                  認知總和：{getCognitiveSum()}% 
+                  {getCognitiveSum() !== 100 && ` (建議調整至 100%)`}
+                </p>
+              </div>
+              <p className="text-xs text-indigo-700 mt-1">
                 布魯姆分類法：記憶 → 理解 → 應用 → 分析
               </p>
             </div>
