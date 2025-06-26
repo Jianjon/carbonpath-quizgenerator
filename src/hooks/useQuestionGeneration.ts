@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -303,6 +302,16 @@ export const useQuestionGeneration = () => {
     setGenerationProgress(0);
     setGenerationStep('🚀 開始分析教材內容...');
     
+    // 檢查是否有指定頁數範圍
+    if (!parameters.chapter || parameters.chapter.trim() === '') {
+      toast({
+        title: "請指定PDF頁數範圍",
+        description: "必須輸入要出題的PDF頁數範圍，例如：1-5, 10, 15-20",
+        variant: "destructive"
+      });
+      throw new Error('請指定PDF頁數範圍才能開始生成題目');
+    }
+    
     // 檢查題目數量並給出建議
     if (parameters.questionCount > 20) {
       toast({
@@ -314,9 +323,13 @@ export const useQuestionGeneration = () => {
     
     const progressInterval = simulateProgress(parameters.questionCount);
     
+    // 強化頁數範圍的提示
     let chapterPrompt = '';
     if (parameters.chapter) {
-      chapterPrompt = `針對教材第 ${parameters.chapter} 頁的學習內容`;
+      chapterPrompt = `**重要限制：只能從PDF的第 ${parameters.chapter} 頁內容出題**
+      - 這裡的頁數是指PDF閱讀器顯示的實際頁碼（如Adobe Reader、瀏覽器PDF顯示的頁數）
+      - 絕對不可以從其他頁數的内容出題
+      - 如果指定頁數內容不足，請基於現有內容出題，不要擴展到其他頁數`;
     }
     
     const keywordsPrompt = (shouldUseKeywords && parameters.keywords) ? 
@@ -329,10 +342,15 @@ export const useQuestionGeneration = () => {
     // 針對大量題目優化的系統提示
     const systemPrompt = `你是專業的淨零iPAS考試題目設計師，專門製作符合iPAS認證標準的淨零碳排放相關考試題目。
 
-🎯 **出題目標**：
+🎯 **嚴格出題範圍限制**：
 ${chapterPrompt}${keywordsPrompt}
 - 製作 ${parameters.questionCount} 道標準選擇題（A、B、C、D 四選項）
-- 幫助考生準備淨零iPAS認證考試
+- **絕對限制**：只能從指定的PDF頁數範圍內出題，不得超出範圍
+
+📋 **頁數範圍說明**：
+- 頁數是指PDF閱讀器顯示的實際頁碼（如Adobe Reader、瀏覽器PDF顯示的頁數）
+- 不是PDF文件內文標註的章節頁數或目錄頁數
+- 請嚴格遵守指定範圍，確保所有題目都來自該範圍內的內容
 
 📚 **出題領域**：
 - 碳盤查與碳足跡
@@ -353,6 +371,7 @@ ${chapterPrompt}${keywordsPrompt}
 4. 題目難度適合iPAS認證考試水準
 5. 包含實際案例和應用情境
 6. ${parameters.questionCount > 15 ? '由於題目數量較多，請確保每道題目都完整且格式一致' : ''}
+7. **關鍵限制**：所有題目內容必須來自指定的PDF頁數範圍，不得引用範圍外的内容
 
 📝 **標準格式（僅返回JSON陣列，不要其他文字）**：
 [
@@ -375,20 +394,30 @@ ${chapterPrompt}${keywordsPrompt}
 
 ${sampleStylePrompt}
 
-**請製作完整的 ${parameters.questionCount} 道淨零iPAS考試題目，確保每道題目都完整且JSON格式正確。**`;
+**請嚴格按照指定的PDF頁數範圍（${parameters.chapter}）製作完整的 ${parameters.questionCount} 道淨零iPAS考試題目，確保每道題目都完整且JSON格式正確。**`;
 
     try {
       console.log('🎯 淨零iPAS題目生成開始');
       console.log('📋 設定參數:', {
-        頁數: parameters.chapter,
+        頁數範圍: parameters.chapter,
         風格: parameters.questionStyle,
-        題數: parameters.questionCount
+        題數: parameters.questionCount,
+        PDF檔案: uploadedFile?.name || '無'
       });
       
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
           systemPrompt,
-          userPrompt: `請基於淨零iPAS考試標準製作 ${parameters.questionCount} 道選擇題。每道題目都要完整包含題目、四個選項、正確答案和解析。請學習提供的樣題風格，題目表達要自然直接，不要使用「根據講義」等字眼。${parameters.questionCount > 15 ? '由於題目數量較多，請特別注意保持JSON格式完整。' : ''}請直接提供JSON格式回應，不要包含其他文字。`,
+          userPrompt: `請嚴格基於PDF第 ${parameters.chapter} 頁的內容製作 ${parameters.questionCount} 道淨零iPAS考試選擇題。
+
+**重要限制**：
+- 只能使用指定頁數範圍內的內容出題
+- 頁數是指PDF閱讀器顯示的實際頁碼
+- 每道題目都要完整包含題目、四個選項、正確答案和解析
+- 請學習提供的樣題風格，題目表達要自然直接，不要使用「根據講義」等字眼
+- ${parameters.questionCount > 15 ? '由於題目數量較多，請特別注意保持JSON格式完整。' : ''}
+
+請直接提供JSON格式回應，不要包含其他文字。`,
           model: 'gpt-4o-mini'
         }
       });

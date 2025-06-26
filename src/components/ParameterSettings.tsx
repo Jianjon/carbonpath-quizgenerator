@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Settings2, Info } from 'lucide-react';
+import { Settings2, Info, AlertTriangle } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { Checkbox } from '@/components/ui/checkbox';
+
 interface SampleQuestion {
   id: string;
   question: string;
@@ -101,15 +102,34 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* PDF 頁數範圍 */}
+          {/* PDF 頁數範圍 - 加強說明 */}
           <div className="w-full">
-            <Label htmlFor="chapter" className="text-sm font-medium text-gray-700 bg-gray-200">
-              PDF 頁數範圍
+            <Label htmlFor="chapter" className="text-sm font-medium text-gray-700 bg-gray-200 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              PDF 頁數範圍（必填）
             </Label>
-            <Textarea id="chapter" className="mt-1 min-h-[80px] w-full" placeholder="例如：1-5, 10, 15-20" value={parameters.chapter} onChange={e => updateParameter('chapter', e.target.value)} rows={3} />
-            <p className="text-xs text-gray-500 mt-1">
-              指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍
-            </p>
+            <Textarea 
+              id="chapter" 
+              className="mt-1 min-h-[80px] w-full" 
+              placeholder="例如：1-5, 10, 15-20" 
+              value={parameters.chapter} 
+              onChange={e => updateParameter('chapter', e.target.value)} 
+              rows={3} 
+            />
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm space-y-1">
+                  <p className="font-medium text-blue-900">重要說明：</p>
+                  <ul className="text-blue-800 space-y-1 text-xs">
+                    <li>• <strong>必須填寫</strong>：指定要出題的 PDF 頁數範圍</li>
+                    <li>• <strong>頁數定義</strong>：使用 PDF 閱讀器顯示的實際頁數（不是PDF內文標註的頁數）</li>
+                    <li>• <strong>格式範例</strong>：單頁「5」、連續頁「1-10」、多個範圍「1-5, 8, 12-15」</li>
+                    <li>• <strong>出題限制</strong>：AI 只會從您指定的頁數範圍內出題，不會超出範圍</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* 題目風格 */}
