@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -9,7 +8,6 @@ import { Slider } from '@/components/ui/slider';
 import { Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { Checkbox } from '@/components/ui/checkbox';
-
 interface SampleQuestion {
   id: string;
   question: string;
@@ -17,13 +15,11 @@ interface SampleQuestion {
   options?: string[];
   answer: string;
 }
-
 interface ChapterWeight {
   name: string;
   weight: number;
   questions: number;
 }
-
 interface WeightingConfig {
   chapterWeights: ChapterWeight[];
   difficultyDistribution: {
@@ -44,7 +40,6 @@ interface WeightingConfig {
     essay: number;
   };
 }
-
 interface Parameters {
   chapter: string;
   questionStyle: string;
@@ -55,38 +50,32 @@ interface Parameters {
   keywords?: string;
   difficultyLevel?: string;
 }
-
 interface ParameterSettingsProps {
   parameters: Parameters;
   onParametersChange: (parameters: Parameters) => void;
   uploadedFile?: File | null;
 }
-
 export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   parameters,
   onParametersChange,
   uploadedFile
 }) => {
   const [advancedSettingsEnabled, setAdvancedSettingsEnabled] = useState(false);
-
   const updateParameter = <K extends keyof Parameters,>(key: K, value: Parameters[K]) => {
     onParametersChange({
       ...parameters,
       [key]: value
     });
   };
-
   const updateQuestionCount = (newCount: number) => {
     onParametersChange({
       ...parameters,
       questionCount: newCount
     });
   };
-
   const handleAdvancedSettingsChange = (checked: boolean | "indeterminate") => {
     setAdvancedSettingsEnabled(checked === true);
   };
-
   const getDifficultyDescription = (difficulty: string) => {
     switch (difficulty) {
       case 'easy':
@@ -101,9 +90,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
         return '';
     }
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* 基本設定 */}
       <Card>
         <CardHeader>
@@ -115,17 +102,10 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
         <CardContent className="space-y-4">
           {/* PDF 頁數範圍 */}
           <div className="w-full">
-            <Label htmlFor="chapter" className="text-sm font-medium text-gray-700">
+            <Label htmlFor="chapter" className="text-sm font-medium text-gray-700 bg-gray-200">
               PDF 頁數範圍
             </Label>
-            <Textarea
-              id="chapter"
-              className="mt-1 min-h-[80px] w-full"
-              placeholder="例如：1-5, 10, 15-20"
-              value={parameters.chapter}
-              onChange={(e) => updateParameter('chapter', e.target.value)}
-              rows={3}
-            />
+            <Textarea id="chapter" className="mt-1 min-h-[80px] w-full" placeholder="例如：1-5, 10, 15-20" value={parameters.chapter} onChange={e => updateParameter('chapter', e.target.value)} rows={3} />
             <p className="text-xs text-gray-500 mt-1">
               指定要出題的 PDF 頁數，可用逗號分隔多個頁數或範圍
             </p>
@@ -133,13 +113,10 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
 
           {/* 題目風格 */}
           <div className="w-full">
-            <Label htmlFor="questionStyle" className="text-sm font-medium text-gray-700">
+            <Label htmlFor="questionStyle" className="text-sm font-medium text-gray-700 rounded-none px-[4px] bg-gray-200">
               題目風格分類
             </Label>
-            <Select 
-              value={parameters.questionStyle} 
-              onValueChange={(value) => updateParameter('questionStyle', value)}
-            >
+            <Select value={parameters.questionStyle} onValueChange={value => updateParameter('questionStyle', value)}>
               <SelectTrigger className="mt-1 w-full">
                 <SelectValue placeholder="選擇題目風格" />
               </SelectTrigger>
@@ -162,13 +139,10 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
 
           {/* 難度等級 */}
           <div className="w-full">
-            <Label htmlFor="difficultyLevel" className="text-sm font-medium text-gray-700">
+            <Label htmlFor="difficultyLevel" className="text-sm font-medium text-gray-700 bg-gray-200">
               難度等級
             </Label>
-            <Select 
-              value={parameters.difficultyLevel || 'medium'} 
-              onValueChange={(value) => updateParameter('difficultyLevel', value)}
-            >
+            <Select value={parameters.difficultyLevel || 'medium'} onValueChange={value => updateParameter('difficultyLevel', value)}>
               <SelectTrigger className="mt-1 w-full">
                 <SelectValue placeholder="選擇難度等級" />
               </SelectTrigger>
@@ -189,18 +163,11 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
 
           {/* 題目數量 */}
           <div className="w-full">
-            <Label className="text-sm font-medium text-gray-700">
+            <Label className="text-sm font-medium text-gray-700 bg-gray-200">
               題目數量：{parameters.questionCount} 題
             </Label>
             <div className="mt-2">
-              <Slider
-                value={[parameters.questionCount]}
-                onValueChange={(value) => updateQuestionCount(value[0])}
-                max={50}
-                min={5}
-                step={5}
-                className="w-full"
-              />
+              <Slider value={[parameters.questionCount]} onValueChange={value => updateQuestionCount(value[0])} max={50} min={5} step={5} className="w-full" />
             </div>
           </div>
 
@@ -231,19 +198,14 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               進階設定
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox
-                id="advanced-settings"
-                checked={advancedSettingsEnabled}
-                onCheckedChange={handleAdvancedSettingsChange}
-              />
+              <Checkbox id="advanced-settings" checked={advancedSettingsEnabled} onCheckedChange={handleAdvancedSettingsChange} />
               <Label htmlFor="advanced-settings" className="text-sm font-medium">
                 啟用進階設定
               </Label>
             </div>
           </CardTitle>
         </CardHeader>
-        {advancedSettingsEnabled && (
-          <CardContent className="space-y-6">
+        {advancedSettingsEnabled && <CardContent className="space-y-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-2">
                 <Info className="h-4 w-4 text-blue-600 mt-0.5" />
@@ -265,12 +227,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               <CardContent>
                 <div>
                   <Label htmlFor="keywords">出題關鍵字</Label>
-                  <Input
-                    id="keywords"
-                    placeholder="例如：機器學習, 深度學習, 神經網路"
-                    value={parameters.keywords || ''}
-                    onChange={(e) => updateParameter('keywords', e.target.value)}
-                  />
+                  <Input id="keywords" placeholder="例如：機器學習, 深度學習, 神經網路" value={parameters.keywords || ''} onChange={e => updateParameter('keywords', e.target.value)} />
                   <p className="text-xs text-gray-500 mt-1">
                     輸入希望題目聚焦的關鍵字，用逗號分隔多個關鍵字。這將幫助 AI 生成更符合特定主題的題目。
                   </p>
@@ -279,13 +236,8 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
             </Card>
 
             {/* 樣題參考 */}
-            <SampleQuestions
-              sampleQuestions={parameters.sampleQuestions}
-              onSampleQuestionsChange={(questions) => updateParameter('sampleQuestions', questions)}
-            />
-          </CardContent>
-        )}
+            <SampleQuestions sampleQuestions={parameters.sampleQuestions} onSampleQuestionsChange={questions => updateParameter('sampleQuestions', questions)} />
+          </CardContent>}
       </Card>
-    </div>
-  );
+    </div>;
 };
