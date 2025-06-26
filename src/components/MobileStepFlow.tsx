@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,7 +66,10 @@ export const MobileStepFlow: React.FC<MobileStepFlowProps> = ({
       {/* 步驟指示器 */}
       <div className="bg-white border-b px-4 py-3">
         <div className="flex items-center justify-between max-w-sm mx-auto">
-          <div className="flex items-center space-x-2">
+          <div 
+            className="flex items-center space-x-2 cursor-pointer"
+            onClick={goToSetup}
+          >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
               currentStep === 'setup' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
             }`}>
