@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -7,8 +6,8 @@ import { FileText, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// 設定 PDF.js worker - 使用本地 worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url);
+// 設定 PDF.js worker - 使用本地 worker，轉換為字串
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
 
 interface PDFOutlineSelectorProps {
   pdfFile: File;
