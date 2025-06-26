@@ -15,37 +15,36 @@ serve(async (req) => {
   }
 
   try {
-    const { systemPrompt, userPrompt, pdfContent, model = 'gpt-4.1-2025-04-14' } = await req.json();
+    const { systemPrompt, userPrompt, pdfContent, model = 'gpt-4o-mini' } = await req.json();
 
     console.log('🔥 AI題目生成請求');
     console.log('模型:', model);
     console.log('PDF內容長度:', pdfContent?.length || 0);
-    console.log('PDF內容預覽:', pdfContent?.substring(0, 150) || '無內容');
 
     if (!openAIApiKey) {
       console.error('❌ OpenAI API 金鑰未設定');
       throw new Error('OpenAI API 金鑰未配置');
     }
 
-    if (!pdfContent || pdfContent.length < 50) {
+    if (!pdfContent || pdfContent.length < 100) {
       console.error('❌ PDF內容不足:', pdfContent?.length || 0);
       throw new Error('PDF內容不足，無法生成有意義的題目');
     }
 
-    // 構建完整的AI提示 - 強化指令
+    // 構建完整的AI提示
     const fullSystemPrompt = `${systemPrompt}
 
-**絕對禁止的行為：**
+**絕對禁止：**
 - 不可使用PDF內容以外的任何知識
-- 不可創造PDF中不存在的概念或術語
+- 不可創造PDF中不存在的概念
 - 不可使用一般常識或背景知識
 
-**必須遵守的規則：**
+**必須遵守：**
 - 每個題目都必須有明確的PDF內容依據
-- 選項設計必須來自PDF實際內容
-- 解析必須引用PDF中的具體段落
+- 選項必須來自PDF實際內容
+- 解析必須引用PDF具體段落
 
-請確保生成的JSON格式完全正確，不要有任何格式錯誤。`;
+請確保生成的JSON格式完全正確。`;
 
     console.log('🤖 發送請求到OpenAI...');
 
@@ -61,18 +60,18 @@ serve(async (req) => {
           { role: 'system', content: fullSystemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.2, // 進一步降低隨機性
-        max_tokens: 8000, // 增加token限制
-        top_p: 0.8,
-        frequency_penalty: 0.2,
-        presence_penalty: 0.2
+        temperature: 0.1,
+        max_tokens: 6000,
+        top_p: 0.9,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.1
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ OpenAI API 錯誤:', response.status, errorText);
-      throw new Error(`OpenAI API 錯誤：${response.status} - ${errorText}`);
+      throw new Error(`OpenAI API 錯誤：${response.status}`);
     }
 
     const data = await response.json();
@@ -86,11 +85,11 @@ serve(async (req) => {
     let generatedText = data.choices[0].message.content.trim();
     console.log('📝 原始生成內容長度:', generatedText.length);
 
-    // 清理和提取JSON
-    generatedText = cleanAndExtractJSON(generatedText);
+    // 清理JSON
+    generatedText = cleanJSON(generatedText);
     console.log('🔧 清理後內容長度:', generatedText.length);
 
-    // 驗證JSON格式
+    // 驗證JSON
     let questions;
     try {
       questions = JSON.parse(generatedText);
@@ -104,7 +103,7 @@ serve(async (req) => {
       
     } catch (parseError) {
       console.error('❌ JSON 解析失敗:', parseError);
-      console.error('❌ 內容:', generatedText.substring(0, 300));
+      console.error('❌ 內容:', generatedText.substring(0, 500));
       
       // 嘗試修復JSON
       try {
@@ -112,14 +111,13 @@ serve(async (req) => {
         questions = JSON.parse(repairedJson);
         console.log('✅ JSON 修復成功');
       } catch (repairError) {
-        console.error('❌ JSON 修復也失敗:', repairError);
-        throw new Error('AI生成的內容格式無法解析，請重新嘗試');
+        console.error('❌ JSON 修復失敗:', repairError);
+        throw new Error('AI生成的內容格式無法解析');
       }
     }
 
-    // 最終驗證
     if (!questions || questions.length === 0) {
-      throw new Error('未能生成有效題目，請重新嘗試');
+      throw new Error('未能生成有效題目');
     }
 
     console.log('🎉 題目生成完成，數量:', questions.length);
@@ -132,7 +130,7 @@ serve(async (req) => {
     console.error('💥 處理錯誤:', error);
     
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : '未知錯誤',
+      error: error instanceof Error ? error.message : '系統錯誤',
       timestamp: new Date().toISOString()
     }), {
       status: 200,
@@ -141,8 +139,8 @@ serve(async (req) => {
   }
 });
 
-// 清理和提取JSON的函數
-function cleanAndExtractJSON(text: string): string {
+// 清理JSON
+function cleanJSON(text: string): string {
   console.log('🧹 開始清理JSON...');
   
   // 移除markdown標記
@@ -150,7 +148,7 @@ function cleanAndExtractJSON(text: string): string {
   text = text.replace(/```\s*/g, '');
   text = text.replace(/`{1,3}/g, '');
   
-  // 移除前後的說明文字，只保留JSON部分
+  // 尋找JSON部分
   let jsonStart = text.indexOf('[');
   let jsonEnd = text.lastIndexOf(']');
   
@@ -161,32 +159,30 @@ function cleanAndExtractJSON(text: string): string {
 
   if (jsonStart !== -1 && jsonEnd !== -1 && jsonStart < jsonEnd) {
     const extracted = text.substring(jsonStart, jsonEnd + 1);
-    console.log('🎯 提取的JSON:', extracted.length, '字符');
+    console.log('🎯 提取JSON成功:', extracted.length, '字符');
     return extracted;
   }
 
-  console.log('⚠️ 無法找到完整JSON結構，返回原始內容');
+  console.log('⚠️ 無法找到JSON結構，返回原始內容');
   return text;
 }
 
-// 修復JSON的函數
+// 修復JSON
 function repairJSON(jsonString: string): string {
   console.log('🔧 嘗試修復JSON...');
   
   let repaired = jsonString.trim();
   
-  // 基本的括號修復
+  // 基本修復
   if (repaired.startsWith('[') && !repaired.endsWith(']')) {
     repaired += ']';
-    console.log('🔧 補充結尾 ]');
   }
   
   if (repaired.startsWith('{') && !repaired.endsWith('}')) {
     repaired += '}';
-    console.log('🔧 補充結尾 }');
   }
   
-  // 移除最後可能多餘的逗號
+  // 移除多餘逗號
   repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
   
   console.log('🔧 修復完成');
