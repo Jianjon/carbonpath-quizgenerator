@@ -1,11 +1,10 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// 修復 PDF.js worker 設定 - 使用更穩定的 CDN
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js';
+// 設定 PDF.js worker - 使用本地文件
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 interface SampleQuestion {
   id: string;
@@ -99,24 +98,26 @@ export const useQuestionGeneration = () => {
     return [...new Set(pages)].sort((a, b) => a - b);
   };
 
-  // 提取PDF指定頁面的內容 - 加強錯誤處理和重試機制
+  // 提取PDF指定頁面的內容 - 簡化配置，提升穩定性
   const extractPDFContent = async (file: File, pageRange: string): Promise<string> => {
     try {
       console.log('🔍 開始提取PDF內容，頁數範圍:', pageRange);
       
       const arrayBuffer = await file.arrayBuffer();
       
-      // 加強 PDF 載入設定 - 移除無效的 disableStreamingImport 屬性
+      // 簡化PDF載入配置，提升穩定性
       const loadingTask = pdfjsLib.getDocument({
         data: arrayBuffer,
         useSystemFonts: true,
-        disableFontFace: true,
-        isEvalSupported: false,
-        useWorkerFetch: false,
-        disableAutoFetch: true
+        verbosity: 0 // 降低日誌級別
       });
 
-      const pdf = await loadingTask.promise;
+      // 設定載入超時
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('PDF載入超時')), 30000);
+      });
+
+      const pdf = await Promise.race([loadingTask.promise, timeoutPromise]) as any;
       console.log('📚 PDF 成功載入，總頁數:', pdf.numPages);
 
       const pages = parsePageRange(pageRange);
@@ -185,12 +186,16 @@ export const useQuestionGeneration = () => {
       console.error('❌ PDF內容提取失敗:', error);
       
       // 提供更具體的錯誤訊息
-      if (error instanceof Error && error.message.includes('worker')) {
-        throw new Error('PDF處理器載入失敗，請重新整理頁面後再試');
-      } else if (error instanceof Error && error.message.includes('Invalid PDF')) {
-        throw new Error('PDF檔案格式無效，請檢查檔案是否完整');
+      if (error instanceof Error) {
+        if (error.message.includes('worker') || error.message.includes('Worker')) {
+          throw new Error('PDF處理器初始化失敗，請重新整理頁面後再試');
+        } else if (error.message.includes('Invalid PDF') || error.message.includes('載入超時')) {
+          throw new Error('PDF檔案無法載入，請檢查檔案是否完整或嘗試較小的檔案');
+        } else {
+          throw new Error(`PDF處理失敗：${error.message}`);
+        }
       } else {
-        throw new Error(`PDF處理失敗：${error instanceof Error ? error.message : '未知錯誤'}`);
+        throw new Error('PDF處理失敗：未知錯誤');
       }
     }
   };
@@ -297,7 +302,7 @@ ${pdfContent}
           systemPrompt,
           userPrompt,
           pdfContent,
-          model: 'gpt-4o'
+          model: 'gpt-4.1-2025-04-14'
         }
       });
 
@@ -329,7 +334,7 @@ ${pdfContent}
         questions = [questions];
       }
 
-      // 嚴格驗證題目品質 - 修復類型檢查問題
+      // 嚴格驗證題目品質
       const validQuestions = questions.filter((q: any) => {
         const isValid = q && 
           typeof q === 'object' && 

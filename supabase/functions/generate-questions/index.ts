@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { systemPrompt, userPrompt, pdfContent, model = 'gpt-4o' } = await req.json();
+    const { systemPrompt, userPrompt, pdfContent, model = 'gpt-4.1-2025-04-14' } = await req.json();
 
     console.log('🔥 AI題目生成請求');
     console.log('模型:', model);
@@ -32,14 +32,18 @@ serve(async (req) => {
       throw new Error('PDF內容不足，無法生成有意義的題目');
     }
 
-    // 構建完整的AI提示
+    // 構建完整的AI提示 - 強化指令
     const fullSystemPrompt = `${systemPrompt}
 
-**重要提醒：**
-- 你必須嚴格基於提供的PDF內容生成題目
+**絕對禁止的行為：**
 - 不可使用PDF內容以外的任何知識
-- 每個題目都要能在PDF內容中找到依據
-- 解析必須引用PDF中的具體內容
+- 不可創造PDF中不存在的概念或術語
+- 不可使用一般常識或背景知識
+
+**必須遵守的規則：**
+- 每個題目都必須有明確的PDF內容依據
+- 選項設計必須來自PDF實際內容
+- 解析必須引用PDF中的具體段落
 
 請確保生成的JSON格式完全正確，不要有任何格式錯誤。`;
 
@@ -57,11 +61,11 @@ serve(async (req) => {
           { role: 'system', content: fullSystemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3, // 降低隨機性，提高一致性
-        max_tokens: 6000,
-        top_p: 0.9,
-        frequency_penalty: 0.1,
-        presence_penalty: 0.1
+        temperature: 0.2, // 進一步降低隨機性
+        max_tokens: 8000, // 增加token限制
+        top_p: 0.8,
+        frequency_penalty: 0.2,
+        presence_penalty: 0.2
       }),
     });
 
@@ -85,7 +89,6 @@ serve(async (req) => {
     // 清理和提取JSON
     generatedText = cleanAndExtractJSON(generatedText);
     console.log('🔧 清理後內容長度:', generatedText.length);
-    console.log('🔧 清理後內容預覽:', generatedText.substring(0, 200));
 
     // 驗證JSON格式
     let questions;
@@ -100,7 +103,7 @@ serve(async (req) => {
       console.log('📊 題目數量:', questions.length);
       
     } catch (parseError) {
-      console.error('❌ JSON 解析失敗:', parseError.message);
+      console.error('❌ JSON 解析失敗:', parseError);
       console.error('❌ 內容:', generatedText.substring(0, 300));
       
       // 嘗試修復JSON
@@ -109,7 +112,7 @@ serve(async (req) => {
         questions = JSON.parse(repairedJson);
         console.log('✅ JSON 修復成功');
       } catch (repairError) {
-        console.error('❌ JSON 修復也失敗:', repairError.message);
+        console.error('❌ JSON 修復也失敗:', repairError);
         throw new Error('AI生成的內容格式無法解析，請重新嘗試');
       }
     }
@@ -126,13 +129,13 @@ serve(async (req) => {
     });
     
   } catch (error) {
-    console.error('💥 處理錯誤:', error.message);
+    console.error('💥 處理錯誤:', error);
     
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: error instanceof Error ? error.message : '未知錯誤',
       timestamp: new Date().toISOString()
     }), {
-      status: 200, // 保持200狀態避免前端錯誤處理問題
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
