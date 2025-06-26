@@ -146,17 +146,45 @@ export const QuestionBankGenerator = () => {
     }
   };
 
-  // 取得題目風格的 prompt 描述
+  // 取得題目風格的完整 prompt 描述
   const getQuestionStylePrompt = (style: string) => {
     switch (style) {
       case 'intuitive':
-        return '題目應簡單清楚，聚焦單一知識點，讓學生用直覺作答，不須綜合思考';
+        return `【直覺刷題型】
+        - 題目應該簡潔明瞭，一眼就能看懂核心概念
+        - 每題只考察一個明確的知識點，避免多重概念混合
+        - 正確答案應該是學過內容的人能直接想到的
+        - 錯誤選項要明顯錯誤，不需要深度分析即可排除
+        - 適合快速複習和基礎概念確認
+        - 語言表達要直白，避免繞彎子的描述`;
+        
       case 'application':
-        return '請根據真實或模擬情境出題，考察學生應用概念解決實際問題的能力';
+        return `【素養應用型】
+        - 基於真實情境或案例背景出題，讓學生感受知識的實用性
+        - 題目要描述一個具體的問題場景，考生需要運用所學概念解決實際問題
+        - 正確答案應該是最適合該情境的解決方案
+        - 錯誤選項要包含看似合理但不適用於該情境的方案
+        - 培養學生將理論知識轉化為實際應用的能力
+        - 題目描述要生動具體，讓考生有身歷其境的感覺`;
+        
       case 'diagnostic':
-        return '請加入常見錯誤概念為選項之一，考察學生是否能正確排除迷思答案';
+        return `【錯誤診斷型】
+        - 刻意加入學生常見的錯誤觀念或迷思概念作為選項
+        - 正確答案要能明確澄清常見的誤解
+        - 錯誤選項應該設計成「看起來很有道理但實際錯誤」的陷阱
+        - 幫助學生識別和修正學習過程中的盲點
+        - 題目要能引導學生深入思考為什麼某些看似正確的概念其實是錯誤的
+        - 解析要詳細說明為什麼錯誤選項是錯的，正確選項為什麼對`;
+        
       case 'strategic':
-        return '設計題目需要學生比較多個方案並做出推論或策略選擇，具備邏輯層次';
+        return `【策略推演型】
+        - 設計需要多步驟邏輯推理的複雜情境
+        - 題目要包含多個變數和條件，考生需要綜合分析
+        - 正確答案應該是經過完整推理過程得出的最佳策略
+        - 錯誤選項要包含推理過程中可能的錯誤判斷點
+        - 考察學生的批判性思維和決策分析能力
+        - 題目要設計成需要比較不同方案優劣的形式`;
+        
       default:
         return '題目應簡單清楚，聚焦單一知識點，讓學生用直覺作答，不須綜合思考';
     }
@@ -201,15 +229,24 @@ export const QuestionBankGenerator = () => {
 - 樣題參考數量：${parameters.sampleQuestions.length} 個`;
     }
 
-    const systemPrompt = `你是一位專業的教育測驗專家。請生成教育測驗題目，回傳格式必須是純 JSON 陣列。
+    const systemPrompt = `你是一位專業的教育測驗專家和學習心理學家。請根據指定的題目風格生成高品質的教育測驗題目。
 
-要求：
+出題要求：
 ${chapterPrompt}${keywordsPrompt}
 - 題目數量：${parameters.questionCount}
-- 題型：選擇題（四選一）
-- 題目風格：${stylePrompt}
+- 題型：選擇題（四選一，選項標示為 A、B、C、D）
 
-請嚴格按照以下 JSON 格式回傳，不要包含任何其他文字：
+題目風格要求：
+${stylePrompt}
+
+AI 智慧表達要求：
+- 運用教育心理學原理，針對不同學習階段設計適合的認知負荷
+- 善用布魯姆分類法，讓題目層次分明
+- 融入最新的學習科學研究成果
+- 每個選項都要有其設計邏輯和教育目的
+- 解析要展現深度思考，不只是標準答案的重述
+
+回傳格式必須是純 JSON 陣列，不包含任何其他文字：
 
 [
   {
@@ -217,7 +254,7 @@ ${chapterPrompt}${keywordsPrompt}
     "content": "題目內容",
     "options": {"A": "選項A", "B": "選項B", "C": "選項C", "D": "選項D"},
     "correct_answer": "A",
-    "explanation": "詳細解析",
+    "explanation": "詳細解析，要說明為什麼這個答案正確，其他選項為什麼不適合",
     "question_type": "choice",
     "difficulty": 0.5,
     "difficulty_label": "中",
@@ -230,7 +267,7 @@ ${chapterPrompt}${keywordsPrompt}
 ]${advancedSettingsPrompt}
 
 ${parameters.sampleQuestions.length > 0 ? `
-參考樣題：
+參考樣題風格：
 ${parameters.sampleQuestions.map((q, i) => `
 ${i + 1}. ${q.question}
 ${q.options ? q.options.join('\n') : ''}
@@ -238,7 +275,10 @@ ${q.options ? q.options.join('\n') : ''}
 `).join('\n')}
 ` : ''}
 
-重要：只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
+重要提醒：
+1. 每種題目風格都有其獨特的教育目的和設計邏輯
+2. 要充分展現 AI 在教育測驗設計上的專業能力
+3. 只回傳 JSON 陣列，不要有任何解釋或其他文字！`;
 
     try {
       setGenerationProgress(40);
