@@ -55,11 +55,23 @@ interface QuestionData {
   cognitiveLevel?: string;
 }
 
+type ChapterType = 'topic' | 'pages';
+
+interface Parameters {
+  chapter: string;
+  chapterType: ChapterType;
+  difficulty: string;
+  questionCount: number;
+  questionTypes: string[];
+  sampleQuestions: SampleQuestion[];
+  weightingConfig: WeightingConfig;
+}
+
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [parameters, setParameters] = useState({
+  const [parameters, setParameters] = useState<Parameters>({
     chapter: '',
-    chapterType: 'topic' as const,
+    chapterType: 'topic',
     difficulty: 'medium',
     questionCount: 10,
     questionTypes: ['multiple-choice'],
@@ -83,7 +95,7 @@ export const QuestionBankGenerator = () => {
         shortAnswer: 10,
         essay: 5
       }
-    } as WeightingConfig
+    }
   });
   const [generatedQuestions, setGeneratedQuestions] = useState<QuestionData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -164,26 +176,15 @@ ${q.options ? q.options.join('\n') : ''}
 }`;
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            {
-              role: 'user',
-              content: `請生成 ${parameters.questionCount} 道題目，${uploadedFile?.name ? `參考 PDF 內容：${uploadedFile.name}` : chapterPrompt}`
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 3000
+          systemPrompt,
+          userPrompt: `請生成 ${parameters.questionCount} 道題目，${uploadedFile?.name ? `參考 PDF 內容：${uploadedFile.name}` : chapterPrompt}`,
+          model: 'gpt-4o-mini'
         })
       });
 
@@ -192,7 +193,7 @@ ${q.options ? q.options.join('\n') : ''}
       }
 
       const data = await response.json();
-      const content = data.choices[0].message.content;
+      const content = data.generatedText;
       
       // 嘗試解析 JSON
       let questions;

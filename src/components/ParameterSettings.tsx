@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -45,9 +46,11 @@ interface WeightingConfig {
   };
 }
 
+type ChapterType = 'topic' | 'pages';
+
 interface Parameters {
   chapter: string;
-  chapterType: string;
+  chapterType: ChapterType;
   difficulty: string;
   questionCount: number;
   questionTypes: string[];
@@ -64,7 +67,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   parameters,
   onParametersChange
 }) => {
-  const updateParameter = (key: keyof Parameters, value: any) => {
+  const updateParameter = <K extends keyof Parameters>(key: K, value: Parameters[K]) => {
     onParametersChange({
       ...parameters,
       [key]: value
@@ -117,7 +120,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               <Label htmlFor="chapterType">出題範圍類型</Label>
               <Select 
                 value={parameters.chapterType} 
-                onValueChange={(value) => updateParameter('chapterType', value)}
+                onValueChange={(value: ChapterType) => updateParameter('chapterType', value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="選擇範圍類型" />
