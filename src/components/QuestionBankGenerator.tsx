@@ -1,14 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
 import { QuestionDisplay } from './QuestionDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, FileText, Settings, Zap, Key, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Brain, FileText, Settings, Zap } from 'lucide-react';
 
 interface SampleQuestion {
   id: string;
@@ -59,13 +57,9 @@ interface QuestionData {
 
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [apiKey, setApiKey] = useState<string>('');
-  const [showApiKey, setShowApiKey] = useState<boolean>(false);
-  const [tempApiKey, setTempApiKey] = useState<string>('');
-  const [apiKeyStatus, setApiKeyStatus] = useState<'loading' | 'found' | 'not_found' | 'error'>('loading');
   const [parameters, setParameters] = useState({
     chapter: '',
-    chapterType: 'topic', // 'topic' 或 'pages'
+    chapterType: 'topic' as const,
     difficulty: 'medium',
     questionCount: 10,
     questionTypes: ['multiple-choice'],
@@ -94,87 +88,6 @@ export const QuestionBankGenerator = () => {
   const [generatedQuestions, setGeneratedQuestions] = useState<QuestionData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // 載入後台儲存的 API 密鑰
-  useEffect(() => {
-    loadApiKey();
-  }, []);
-
-  const loadApiKey = async () => {
-    try {
-      setApiKeyStatus('loading');
-      const userId = getOrCreateUserId();
-      
-      const { data, error } = await supabase.functions.invoke('manage-api-keys', {
-        body: {
-          method: 'GET',
-          userId,
-          serviceName: 'openai'
-        }
-      });
-
-      if (error) {
-        console.error('載入 API 密鑰時發生錯誤:', error);
-        setApiKeyStatus('error');
-        return;
-      }
-
-      if (data && data.apiKey) {
-        setApiKey(data.apiKey);
-        setApiKeyStatus('found');
-        console.log('成功載入 API 密鑰');
-      } else {
-        setApiKeyStatus('not_found');
-        console.log('未找到 API 密鑰');
-      }
-    } catch (error) {
-      console.error('載入 API 密鑰時發生錯誤:', error);
-      setApiKeyStatus('error');
-    }
-  };
-
-  const getOrCreateUserId = () => {
-    let userId = localStorage.getItem('quiz_creator_user_id');
-    if (!userId) {
-      userId = 'user_' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('quiz_creator_user_id', userId);
-    }
-    return userId;
-  };
-
-  const saveApiKey = async () => {
-    if (!tempApiKey.trim()) {
-      alert('請輸入 API 密鑰');
-      return;
-    }
-
-    try {
-      const userId = getOrCreateUserId();
-      
-      const { data, error } = await supabase.functions.invoke('manage-api-keys', {
-        body: {
-          method: 'POST',
-          userId,
-          serviceName: 'openai',
-          apiKey: tempApiKey
-        }
-      });
-
-      if (error) {
-        console.error('儲存 API 密鑰時發生錯誤:', error);
-        alert('儲存失敗，請稍後再試');
-        return;
-      }
-
-      setApiKey(tempApiKey);
-      setApiKeyStatus('found');
-      setTempApiKey('');
-      alert('API 密鑰已成功儲存');
-    } catch (error) {
-      console.error('儲存 API 密鑰時發生錯誤:', error);
-      alert('儲存失敗，請稍後再試');
-    }
-  };
-
   // 取得最終使用的難度設定
   const getEffectiveDifficulty = () => {
     // 檢查進階設定是否啟用（有自訂分佈且不全為預設值）
@@ -201,11 +114,6 @@ export const QuestionBankGenerator = () => {
   };
 
   const generateQuestionsWithAI = async () => {
-    if (!apiKey) {
-      alert('請先設定 OpenAI API 密鑰');
-      return;
-    }
-
     const effectiveDifficulty = getEffectiveDifficulty();
     
     // 根據章節類型調整提示詞
@@ -259,11 +167,11 @@ ${q.options ? q.options.join('\n') : ''}
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',
@@ -314,119 +222,16 @@ ${q.options ? q.options.join('\n') : ''}
     }
 
     setIsGenerating(true);
-    
-    if (apiKey) {
-      await generateQuestionsWithAI();
-    } else {
-      // 模擬生成（開發測試用）
-      setTimeout(() => {
-        const mockQuestions: QuestionData[] = Array.from({ length: parameters.questionCount }, (_, index) => ({
-          id: `q${index + 1}`,
-          type: 'multiple-choice',
-          question: `關於 ${parameters.chapter} 的第 ${index + 1} 題，以下何者正確？`,
-          options: [
-            '選項 A：這是第一個選項',
-            '選項 B：這是第二個選項',
-            '選項 C：這是第三個選項',
-            '選項 D：這是第四個選項'
-          ],
-          answer: 'B',
-          explanation: `根據教材內容，正確答案是 B。這是因為在 ${parameters.chapter} 中明確提到了相關概念...`,
-          difficulty: parameters.difficulty,
-          chapter: parameters.chapter,
-          cognitiveLevel: 'understand'
-        }));
-        
-        setGeneratedQuestions(mockQuestions);
-      }, 3000);
-    }
-    
+    await generateQuestionsWithAI();
     setIsGenerating(false);
-  };
-
-  const getApiKeyStatusMessage = () => {
-    switch (apiKeyStatus) {
-      case 'loading':
-        return { text: '正在檢查 API 密鑰...', color: 'text-blue-600' };
-      case 'found':
-        return { text: '✅ API 密鑰已設定', color: 'text-green-600' };
-      case 'not_found':
-        return { text: '⚠️ 未設定 API 密鑰，請聯繫管理員', color: 'text-amber-600' };
-      case 'error':
-        return { text: '❌ API 密鑰載入失敗', color: 'text-red-600' };
-      default:
-        return { text: '', color: '' };
-    }
   };
 
   return (
     <div className="max-w-full mx-auto">
       {/* 新版面配置：左1/3右2/3 */}
       <div className="flex gap-6 h-[calc(100vh-12rem)]">
-        {/* 左側：API 設定、教材上傳與參數設定 (1/3) */}
+        {/* 左側：教材上傳與參數設定 (1/3) */}
         <div className="w-1/3 space-y-6 overflow-y-auto pr-4">
-          {/* API 密鑰設定 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Key className="h-5 w-5 text-blue-600" />
-                API 密鑰設定
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className={`text-sm font-medium ${getApiKeyStatusMessage().color}`}>
-                  {getApiKeyStatusMessage().text}
-                </div>
-                
-                {apiKeyStatus !== 'found' && (
-                  <div className="space-y-3">
-                    <Label htmlFor="apiKey">OpenAI API 密鑰</Label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Input
-                          id="apiKey"
-                          type={showApiKey ? "text" : "password"}
-                          placeholder="請輸入您的 OpenAI API 密鑰"
-                          value={tempApiKey}
-                          onChange={(e) => setTempApiKey(e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowApiKey(!showApiKey)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                      <Button onClick={saveApiKey} size="sm">
-                        儲存
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      密鑰將安全儲存在後台，僅用於生成題目
-                    </p>
-                  </div>
-                )}
-                
-                {apiKeyStatus === 'found' && (
-                  <div className="text-xs text-gray-500">
-                    API 密鑰已設定，可以使用 AI 生成功能
-                  </div>
-                )}
-                
-                {apiKeyStatus === 'error' && (
-                  <button 
-                    onClick={loadApiKey}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    重新檢查
-                  </button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* PDF 上傳區 */}
           <Card>
             <CardHeader>
@@ -464,18 +269,13 @@ ${q.options ? q.options.join('\n') : ''}
             <CardContent className="pt-6">
               <Button 
                 onClick={handleGenerate}
-                disabled={(!uploadedFile && !parameters.chapter) || isGenerating || apiKeyStatus !== 'found'}
+                disabled={(!uploadedFile && !parameters.chapter) || isGenerating}
                 size="lg"
                 className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
                 <Zap className="h-5 w-5 mr-2" />
                 {isGenerating ? '生成中...' : '開始生成題庫'}
               </Button>
-              {apiKeyStatus !== 'found' && (
-                <p className="text-sm text-amber-600 mt-2 text-center">
-                  {apiKeyStatus === 'not_found' ? '⚠️ 需要設定 API 密鑰才能使用 AI 生成' : '⚠️ API 密鑰狀態異常'}
-                </p>
-              )}
             </CardContent>
           </Card>
         </div>
