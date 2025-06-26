@@ -97,15 +97,49 @@ serve(async (req) => {
       console.warn('⚠️ 回應被截斷，嘗試部分處理');
     }
 
-    // 檢查是否被拒絕生成
-    const refusalKeywords = ['抱歉', '無法提供', '不能生成', 'I cannot', 'I\'m sorry', 'unable to', 'cannot provide'];
-    const isRefusal = refusalKeywords.some(keyword => 
+    // 修正：正確處理"內容不足"的情況
+    const contentInsufficientKeywords = [
+      '指定頁數',
+      '內容不足',
+      '不足以生成',
+      '建議減少題目數量',
+      '擴大頁數範圍',
+      '該頁面主要包含'
+    ];
+    
+    const isContentInsufficient = contentInsufficientKeywords.some(keyword => 
+      generatedText.includes(keyword)
+    );
+
+    // 只有真正的拒絕關鍵字才視為拒絕
+    const trueRefusalKeywords = [
+      '抱歉，我無法',
+      '我不能提供',
+      '不能生成這類內容',
+      'I cannot',
+      'I\'m sorry, I cannot',
+      'unable to provide'
+    ];
+    
+    const isRefusal = trueRefusalKeywords.some(keyword => 
       generatedText.toLowerCase().includes(keyword.toLowerCase())
     );
 
     if (isRefusal) {
       console.error('❌ AI 拒絕生成內容:', generatedText.substring(0, 200));
       throw new Error('系統暫時無法處理此教材內容，請嘗試調整出題設定');
+    }
+
+    // 如果是內容不足，直接返回說明訊息
+    if (isContentInsufficient) {
+      console.log('📋 內容不足回報:', generatedText);
+      return new Response(JSON.stringify({ 
+        error: generatedText,
+        isContentInsufficient: true
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // 強化的JSON清理和修復邏輯

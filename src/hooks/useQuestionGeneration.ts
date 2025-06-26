@@ -441,10 +441,26 @@ ${sampleStylePrompt}
         
         let errorMessage = '題目生成遇到問題';
         
-        if (response.error.message) {
-          if (response.error.message.includes('內容不足')) {
-            errorMessage = `PDF第 ${parameters.chapter} 頁內容不足以生成 ${parameters.questionCount} 道題目。\n建議：\n1. 減少題目數量\n2. 擴大頁數範圍（例如：${parameters.chapter.split('-')[0]}-${parseInt(parameters.chapter.split('-')[1] || parameters.chapter) + 2}）\n3. 檢查頁數範圍是否正確`;
-          } else if (response.error.message.includes('題目數量過多') || response.error.message.includes('減少到15題')) {
+        // 檢查是否為內容不足的錯誤
+        if (response.error.isContentInsufficient || 
+            (response.error.message && (
+              response.error.message.includes('內容不足') ||
+              response.error.message.includes('指定頁數') ||
+              response.error.message.includes('不足以生成')
+            ))) {
+          
+          const pageRange = parameters.chapter;
+          errorMessage = `PDF第 ${pageRange} 頁內容不足以生成 ${parameters.questionCount} 道題目。
+
+📋 建議解決方案：
+1️⃣ 減少題目數量到 3-5 道
+2️⃣ 擴大頁數範圍（例如：${pageRange.includes('-') ? 
+            `${pageRange.split('-')[0]}-${parseInt(pageRange.split('-')[1]) + 5}` : 
+            `${pageRange}-${parseInt(pageRange) + 5}`}）
+3️⃣ 檢查頁數範圍是否為PDF閱讀器顯示的實際頁碼
+4️⃣ 確認該頁面有足夠的文字內容（非空白或純圖片頁面）`;
+        } else if (response.error.message) {
+          if (response.error.message.includes('題目數量過多') || response.error.message.includes('減少到15題')) {
             errorMessage = `題目數量過多導致生成問題，建議：\n1. 減少題目數量到10-15道\n2. 確認PDF第 ${parameters.chapter} 頁有足夠內容\n3. 分批生成題目`;
           } else {
             errorMessage = response.error.message;
