@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// 設定 PDF.js worker - 使用本地文件
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+// 設定 PDF.js worker - 使用CDN確保穩定性
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.js';
 
 interface SampleQuestion {
   id: string;
@@ -98,26 +98,21 @@ export const useQuestionGeneration = () => {
     return [...new Set(pages)].sort((a, b) => a - b);
   };
 
-  // 提取PDF指定頁面的內容 - 簡化配置，提升穩定性
+  // 提取PDF指定頁面的內容 - 優化載入流程
   const extractPDFContent = async (file: File, pageRange: string): Promise<string> => {
     try {
       console.log('🔍 開始提取PDF內容，頁數範圍:', pageRange);
+      console.log('📄 檔案大小:', (file.size / 1024 / 1024).toFixed(2), 'MB');
       
       const arrayBuffer = await file.arrayBuffer();
+      console.log('✅ 檔案讀取完成');
       
-      // 簡化PDF載入配置，提升穩定性
-      const loadingTask = pdfjsLib.getDocument({
+      // 簡化PDF載入配置，移除可能導致問題的選項
+      const pdf = await pdfjsLib.getDocument({
         data: arrayBuffer,
-        useSystemFonts: true,
-        verbosity: 0 // 降低日誌級別
-      });
-
-      // 設定載入超時
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('PDF載入超時')), 30000);
-      });
-
-      const pdf = await Promise.race([loadingTask.promise, timeoutPromise]) as any;
+        verbosity: 0
+      }).promise;
+      
       console.log('📚 PDF 成功載入，總頁數:', pdf.numPages);
 
       const pages = parsePageRange(pageRange);
@@ -129,8 +124,11 @@ export const useQuestionGeneration = () => {
 
       let fullContent = '';
       let successCount = 0;
+      const maxPages = Math.min(pages.length, 25); // 限制最多處理25頁
       
-      for (const pageNum of pages) {
+      for (let i = 0; i < maxPages; i++) {
+        const pageNum = pages[i];
+        
         if (pageNum > pdf.numPages) {
           console.warn(`⚠️ 頁數 ${pageNum} 超出PDF總頁數 ${pdf.numPages}`);
           continue;
@@ -143,7 +141,7 @@ export const useQuestionGeneration = () => {
           
           const pageText = textContent.items
             .map((item: any) => {
-              if (item && item.str) {
+              if (item && typeof item.str === 'string') {
                 return item.str;
               }
               return '';
@@ -163,20 +161,26 @@ export const useQuestionGeneration = () => {
         } catch (pageError) {
           console.error(`❌ 提取第 ${pageNum} 頁失敗:`, pageError);
         }
+        
+        // 更新進度
+        if (i % 3 === 0) {
+          setGenerationProgress(10 + (i / maxPages) * 20);
+        }
       }
 
       console.log('📊 提取統計:', {
-        總頁數: pages.length,
+        目標頁數: pages.length,
+        處理頁數: maxPages,
         成功頁數: successCount,
         內容總長度: fullContent.length
       });
 
-      if (fullContent.length < 50) {
-        throw new Error(`PDF內容提取不足，可能原因：
+      if (fullContent.length < 100) {
+        throw new Error(`PDF內容提取不足 (僅 ${fullContent.length} 字符)。可能原因：
 1. PDF是掃描版圖片，無法提取文字
 2. 指定頁面內容過少
-3. PDF檔案損壞
-請檢查PDF是否為文字版本，或嘗試其他頁數範圍`);
+3. 檔案格式問題
+請確認PDF是文字版本，或嘗試不同的頁數範圍`);
       }
 
       console.log('📖 內容預覽:', fullContent.substring(0, 200) + '...');
@@ -185,17 +189,19 @@ export const useQuestionGeneration = () => {
     } catch (error) {
       console.error('❌ PDF內容提取失敗:', error);
       
-      // 提供更具體的錯誤訊息
+      // 更詳細的錯誤分析
       if (error instanceof Error) {
-        if (error.message.includes('worker') || error.message.includes('Worker')) {
-          throw new Error('PDF處理器初始化失敗，請重新整理頁面後再試');
-        } else if (error.message.includes('Invalid PDF') || error.message.includes('載入超時')) {
-          throw new Error('PDF檔案無法載入，請檢查檔案是否完整或嘗試較小的檔案');
+        if (error.message.includes('Invalid PDF')) {
+          throw new Error('PDF檔案格式無效或損壞，請重新上傳完整的PDF檔案');
+        } else if (error.message.includes('password')) {
+          throw new Error('PDF檔案有密碼保護，請上傳無密碼的PDF檔案');
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          throw new Error('網路連線問題，請檢查網路後重試');
         } else {
           throw new Error(`PDF處理失敗：${error.message}`);
         }
       } else {
-        throw new Error('PDF處理失敗：未知錯誤');
+        throw new Error('PDF處理失敗：未知錯誤，請重新嘗試');
       }
     }
   };
@@ -243,10 +249,10 @@ export const useQuestionGeneration = () => {
       // 提取PDF實際內容
       const pdfContent = await extractPDFContent(uploadedFile, parameters.chapter);
       
-      setGenerationProgress(30);
+      setGenerationProgress(35);
       setGenerationStep('🤖 準備AI分析...');
       
-      // 構建更嚴格的系統提示
+      // 構建更強化的系統提示
       const systemPrompt = `你是專業的教育評量專家。請嚴格按照以下要求生成題目：
 
 **重要：你必須只能基於以下PDF實際內容生成題目**
@@ -255,25 +261,24 @@ export const useQuestionGeneration = () => {
 ${pdfContent}
 
 **嚴格要求：**
-1. 題目內容必須完全來自上述PDF內容
-2. 不可使用任何PDF外的知識或資訊
-3. 每個選項都必須基於PDF內容設計
-4. 解析必須引用PDF中的具體段落或概念
-5. 如果PDF內容不足，請說明並生成可能的數量
+1. 題目內容必須完全來自上述PDF內容，絕對不可使用PDF外的任何知識
+2. 每個選項都必須基於PDF內容設計，不可憑空創造
+3. 解析必須引用PDF中的具體段落或概念
+4. 如果PDF內容不足以生成指定數量的題目，請生成能夠確保品質的數量
 
-**輸出格式（JSON陣列）：**
+**輸出格式（完整JSON陣列）：**
 [
   {
     "id": "1",
     "content": "完全基於PDF內容的題目...",
     "options": {
-      "A": "選項A - 來自PDF",
-      "B": "選項B - 來自PDF", 
-      "C": "選項C - 來自PDF",
-      "D": "選項D - 來自PDF"
+      "A": "選項A - 來自PDF實際內容",
+      "B": "選項B - 來自PDF實際內容", 
+      "C": "選項C - 來自PDF實際內容",
+      "D": "選項D - 來自PDF實際內容"
     },
     "correct_answer": "A",
-    "explanation": "解析：根據PDF第X頁提到的...",
+    "explanation": "解析：根據PDF內容，...",
     "question_type": "choice",
     "difficulty": 0.6,
     "difficulty_label": "中",
@@ -283,19 +288,22 @@ ${pdfContent}
     "page_range": "${parameters.chapter}",
     "tags": ["基於PDF的標籤"]
   }
-]`;
+]
 
-      const userPrompt = `請嚴格基於提供的PDF內容（第${parameters.chapter}頁），生成 ${parameters.questionCount} 道專業選擇題。
+請確保JSON格式完全正確，不要有任何語法錯誤。`;
+
+      const userPrompt = `請嚴格基於提供的PDF內容（第${parameters.chapter}頁），生成 ${parameters.questionCount} 道高品質選擇題。
 
 **要求：**
-1. 只能使用PDF實際內容
-2. 題目要測試對PDF內容的理解
-3. 解析要引用PDF具體內容
-4. 確保JSON格式正確
+1. 每道題目都必須有PDF內容依據
+2. 選項設計要有挑戰性但基於實際內容
+3. 解析要詳細並引用PDF具體內容
+4. 確保JSON格式完全正確
 
 請立即開始生成：`;
 
       console.log('🎯 向AI發送生成請求...');
+      console.log('📋 PDF內容長度:', pdfContent.length);
       
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
@@ -344,11 +352,10 @@ ${pdfContent}
           q.correct_answer && 
           q.explanation && 
           typeof q.explanation === 'string' &&
-          q.explanation.length >= 30 && 
+          q.explanation.length >= 20 && 
           q.options &&
           typeof q.options === 'object' &&
-          Object.keys(q.options).length >= 4 &&
-          Object.values(q.options).every(opt => opt && typeof opt === 'string' && opt.length > 0);
+          Object.keys(q.options).length >= 4;
           
         if (!isValid) {
           console.warn('❌ 無效題目:', q);
