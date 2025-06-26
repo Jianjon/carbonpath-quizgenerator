@@ -6,7 +6,7 @@ import { QuestionDisplay } from './QuestionDisplay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Brain, FileText, Settings } from 'lucide-react';
+import { Brain, FileText, Settings, Zap } from 'lucide-react';
 
 interface SampleQuestion {
   id: string;
@@ -62,7 +62,6 @@ export const QuestionBankGenerator = () => {
     difficulty: 'medium',
     questionCount: 10,
     questionTypes: ['multiple-choice'],
-    apiKey: localStorage.getItem('openai_api_key') || '',
     sampleQuestions: [] as SampleQuestion[],
     weightingConfig: {
       chapterWeights: [],
@@ -88,17 +87,12 @@ export const QuestionBankGenerator = () => {
   const [generatedQuestions, setGeneratedQuestions] = useState<QuestionData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // 從 localStorage 載入 API 密鑰
-  useEffect(() => {
-    const savedApiKey = localStorage.getItem('openai_api_key');
-    if (savedApiKey) {
-      setParameters(prev => ({ ...prev, apiKey: savedApiKey }));
-    }
-  }, []);
-
   const generateQuestionsWithAI = async () => {
-    if (!parameters.apiKey) {
-      alert('請先設定 OpenAI API 密鑰');
+    // 注意：此處需要外部 API 密鑰配置
+    const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      alert('請在環境變數中設定 REACT_APP_OPENAI_API_KEY');
       return;
     }
 
@@ -147,7 +141,7 @@ ${q.options ? q.options.join('\n') : ''}
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${parameters.apiKey}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -203,10 +197,11 @@ ${q.options ? q.options.join('\n') : ''}
 
     setIsGenerating(true);
     
-    if (parameters.apiKey) {
+    // 檢查是否有 API 密鑰配置
+    if (process.env.REACT_APP_OPENAI_API_KEY) {
       await generateQuestionsWithAI();
     } else {
-      // 模擬生成（原有邏輯）
+      // 模擬生成（開發測試用）
       setTimeout(() => {
         const mockQuestions: QuestionData[] = Array.from({ length: parameters.questionCount }, (_, index) => ({
           id: `q${index + 1}`,
@@ -233,64 +228,81 @@ ${q.options ? q.options.join('\n') : ''}
   };
 
   return (
-    <Card className="max-w-6xl mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold text-gray-900 flex items-center justify-center gap-2">
-          <Brain className="h-6 w-6 text-blue-600" />
-          AI 題庫生成工作台
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="upload" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="upload" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              上傳檔案
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              參數設定
-            </TabsTrigger>
-            <TabsTrigger value="results" className="flex items-center gap-2">
-              <Brain className="h-4 w-4" />
-              生成結果
-            </TabsTrigger>
-          </TabsList>
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* 工作台主體 */}
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* 左側：檔案上傳與基本設定 */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* PDF 上傳區 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                教材上傳
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PDFUploader 
+                uploadedFile={uploadedFile}
+                onFileUpload={setUploadedFile}
+              />
+            </CardContent>
+          </Card>
 
-          <TabsContent value="upload" className="mt-6">
-            <PDFUploader 
-              uploadedFile={uploadedFile}
-              onFileUpload={setUploadedFile}
-            />
-          </TabsContent>
-
-          <TabsContent value="settings" className="mt-6">
-            <ParameterSettings 
-              parameters={parameters}
-              onParametersChange={setParameters}
-            />
-            <div className="mt-6 text-center">
+          {/* 生成按鈕 */}
+          <Card>
+            <CardContent className="pt-6">
               <Button 
                 onClick={handleGenerate}
                 disabled={(!uploadedFile && !parameters.chapter) || isGenerating}
                 size="lg"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
+                <Zap className="h-5 w-5 mr-2" />
                 {isGenerating ? '生成中...' : '開始生成題庫'}
               </Button>
-              {!parameters.apiKey && (
-                <p className="text-sm text-amber-600 mt-2">
-                  ⚠️ 未設定 API 密鑰，將使用模擬資料生成
+              {!process.env.REACT_APP_OPENAI_API_KEY && (
+                <p className="text-sm text-amber-600 mt-2 text-center">
+                  ⚠️ 未配置 API 密鑰，將使用模擬資料生成
                 </p>
               )}
-            </div>
-          </TabsContent>
+            </CardContent>
+          </Card>
+        </div>
 
-          <TabsContent value="results" className="mt-6">
-            <QuestionDisplay questions={generatedQuestions} />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+        {/* 中間：參數設定 */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Settings className="h-5 w-5 text-green-600" />
+                參數設定
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="max-h-[80vh] overflow-y-auto">
+              <ParameterSettings 
+                parameters={parameters}
+                onParametersChange={setParameters}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 右側：生成結果 */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Brain className="h-5 w-5 text-purple-600" />
+                生成結果
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="max-h-[80vh] overflow-y-auto">
+              <QuestionDisplay questions={generatedQuestions} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 };

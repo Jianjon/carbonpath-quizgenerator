@@ -8,7 +8,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, Settings2 } from 'lucide-react';
-import { APIKeySettings } from './APIKeySettings';
 import { SampleQuestions } from './SampleQuestions';
 import { WeightingSystem } from './WeightingSystem';
 
@@ -52,7 +51,6 @@ interface Parameters {
   difficulty: string;
   questionCount: number;
   questionTypes: string[];
-  apiKey: string;
   sampleQuestions: SampleQuestion[];
   weightingConfig: WeightingConfig;
 }
@@ -99,12 +97,6 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* API 設定 */}
-      <APIKeySettings 
-        apiKey={parameters.apiKey}
-        onApiKeyChange={(key) => updateParameter('apiKey', key)}
-      />
-
       {/* 基本設定 */}
       <Card>
         <CardHeader>
