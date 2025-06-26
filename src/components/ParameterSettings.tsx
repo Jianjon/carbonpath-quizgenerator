@@ -132,6 +132,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                 <SelectItem value="application">素養應用型</SelectItem>
                 <SelectItem value="diagnostic">錯誤診斷型</SelectItem>
                 <SelectItem value="strategic">策略推演型</SelectItem>
+                <SelectItem value="mixed">混合應用型</SelectItem>
               </SelectContent>
             </Select>
             <div className="text-xs text-gray-500 mt-2 space-y-1">
@@ -139,6 +140,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
               <div><span className="font-medium">素養應用型：</span>真實情境案例，培養理論轉實務的應用能力</div>
               <div><span className="font-medium">錯誤診斷型：</span>包含常見錯誤迷思，強化概念釐清與辨識</div>
               <div><span className="font-medium">策略推演型：</span>多步驟邏輯推理，訓練批判思維與決策分析</div>
+              <div><span className="font-medium">混合應用型：</span>綜合運用前四種風格，創造多元化的學習體驗</div>
             </div>
           </div>
 
