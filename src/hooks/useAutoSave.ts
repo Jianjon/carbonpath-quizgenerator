@@ -37,14 +37,22 @@ export const useAutoSave = (
 ) => {
   // 自動保存完整的題目內容到資料庫
   const saveQuestionsToDatabase = async () => {
-    if (generatedQuestions.length === 0) return;
+    if (generatedQuestions.length === 0) {
+      console.log('📝 沒有題目需要保存');
+      return;
+    }
     
     try {
       const userIP = await getUserIP();
       const userAgent = navigator.userAgent;
       
+      console.log('🚀 開始保存題目到資料庫...');
+      console.log('題目數量:', generatedQuestions.length);
+      console.log('題目預覽:', generatedQuestions.slice(0, 2));
+      
       // 如果還沒有 session，先創建一個
       if (!sessionId) {
+        console.log('⚡ 創建新的生成會話...');
         const { data: session, error: sessionError } = await supabase
           .from('generation_sessions')
           .insert({
@@ -58,7 +66,12 @@ export const useAutoSave = (
           .select()
           .single();
 
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          console.error('❌ 創建會話失敗:', sessionError);
+          throw sessionError;
+        }
+        
+        console.log('✅ 會話創建成功:', session.id);
         setSessionId(session.id);
         
         // 將題目完整保存到 question_bank 表
@@ -79,14 +92,22 @@ export const useAutoSave = (
           user_ip: userIP
         }));
 
-        const { error: questionsError } = await supabase
+        console.log('💾 準備插入題目資料:', questionsToSave.length, '道題目');
+        console.log('第一道題目詳細資料:', questionsToSave[0]);
+
+        const { data: savedQuestions, error: questionsError } = await supabase
           .from('question_bank')
-          .insert(questionsToSave);
+          .insert(questionsToSave)
+          .select();
 
-        if (questionsError) throw questionsError;
+        if (questionsError) {
+          console.error('❌ 插入題目失敗:', questionsError);
+          throw questionsError;
+        }
 
-        console.log(`✅ 成功保存 ${generatedQuestions.length} 道完整題目到資料庫`);
-        console.log('保存的題目資料:', questionsToSave);
+        console.log('✅ 成功保存題目:', savedQuestions?.length || questionsToSave.length, '道');
+        console.log('保存的題目 IDs:', savedQuestions?.map(q => q.id));
+
       } else {
         // 如果已有 session，更新現有題目
         await updateQuestionsInDatabase(generatedQuestions);
@@ -102,20 +123,27 @@ export const useAutoSave = (
         .eq('user_ip', userIP);
 
       if (updateError) {
-        console.warn('更新使用者會話統計失敗:', updateError);
+        console.warn('⚠️ 更新使用者會話統計失敗:', updateError);
       }
 
+      console.log('🎉 題目保存流程完成！');
     } catch (error) {
       console.error('❌ 保存題目到資料庫失敗:', error);
+      console.error('錯誤詳情:', error.message || error);
       throw error;
     }
   };
 
   const updateQuestionsInDatabase = async (updatedQuestions: QuestionData[]) => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.warn('⚠️ 沒有 session ID，無法更新題目');
+      return;
+    }
     
     try {
       const userIP = await getUserIP();
+      
+      console.log('🔄 更新現有題目，會話 ID:', sessionId);
       
       // 先刪除舊的題目
       const { error: deleteError } = await supabase
@@ -123,7 +151,12 @@ export const useAutoSave = (
         .delete()
         .eq('session_id', sessionId);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('❌ 刪除舊題目失敗:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('🗑️ 已刪除舊題目');
 
       // 插入更新後的完整題目資料
       const questionsToSave = updatedQuestions.map(q => ({
@@ -143,14 +176,19 @@ export const useAutoSave = (
         user_ip: userIP
       }));
 
-      const { error: insertError } = await supabase
+      console.log('💾 準備插入更新後的題目:', questionsToSave.length, '道');
+
+      const { data: savedQuestions, error: insertError } = await supabase
         .from('question_bank')
-        .insert(questionsToSave);
+        .insert(questionsToSave)
+        .select();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('❌ 插入更新後的題目失敗:', insertError);
+        throw insertError;
+      }
 
-      console.log(`✅ 成功更新 ${updatedQuestions.length} 道題目到資料庫`);
-      console.log('更新的題目資料:', questionsToSave);
+      console.log('✅ 成功更新題目:', savedQuestions?.length || questionsToSave.length, '道');
     } catch (error) {
       console.error('❌ 更新題目到資料庫失敗:', error);
       throw error;
@@ -160,11 +198,12 @@ export const useAutoSave = (
   // 當生成完成時自動保存完整題目內容
   useEffect(() => {
     if (generatedQuestions.length > 0) {
+      console.log('🎯 檢測到題目變化，開始自動保存...');
       saveQuestionsToDatabase().catch(error => {
         console.error('自動保存失敗:', error);
       });
     }
-  }, [generatedQuestions.length]);
+  }, [generatedQuestions.length, JSON.stringify(generatedQuestions)]);
 
   return {
     updateQuestionsInDatabase,

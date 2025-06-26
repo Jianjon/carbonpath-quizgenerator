@@ -1,8 +1,33 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Info, AlertTriangle, Mail, User } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 export const Footer = () => {
-  return <footer className="mt-16 bg-gray-50 border-t">
+  const isMobile = useIsMobile();
+  
+  // 根據裝置調整 QR Code 尺寸
+  const getQRCodeStyle = () => {
+    if (isMobile) {
+      // 手機版放大 2.5 倍
+      return {
+        transform: 'scale(2.5)',
+        transformOrigin: 'center center',
+        margin: '40px 0' // 增加間距避免重疊
+      };
+    } else {
+      // 網頁版和平板版縮小 2.5 倍
+      return {
+        transform: 'scale(0.4)',
+        transformOrigin: 'center center',
+        margin: '-20px 0' // 減少間距
+      };
+    }
+  };
+
+  return (
+    <footer className="mt-16 bg-gray-50 border-t">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">
@@ -54,8 +79,13 @@ export const Footer = () => {
             <h3 className="text-xl font-semibold text-gray-900 mb-4">聯絡我</h3>
             <div className="flex justify-center items-center space-x-8">
               <div className="text-center">
-                <div className="bg-white p-6 rounded-lg shadow-sm inline-block mb-2 px-0 py-0">
-                  <img src="/lovable-uploads/b2c9161e-c5d5-4796-b48e-a38b02429785.png" alt="聯絡方式 QR Code" className="object-contain" />
+                <div className="bg-white p-6 rounded-lg shadow-sm inline-block mb-2 px-0 py-0 overflow-hidden">
+                  <img 
+                    src="/lovable-uploads/b2c9161e-c5d5-4796-b48e-a38b02429785.png" 
+                    alt="聯絡方式 QR Code" 
+                    className="object-contain"
+                    style={getQRCodeStyle()}
+                  />
                 </div>
               </div>
               <div className="text-left space-y-2">
@@ -75,5 +105,6 @@ export const Footer = () => {
           </div>
         </div>
       </div>
-    </footer>;
+    </footer>
+  );
 };
