@@ -46,7 +46,6 @@ export const SidebarContentComponent: React.FC<SidebarContentComponentProps> = (
             uploadedFile={uploadedFile} 
             onFileUpload={setUploadedFile} 
             onUploadComplete={handleUploadComplete}
-            pageRange={parameters.chapter}
             generatedQuestionsCount={generatedQuestions.length}
           />
         </CardContent>
@@ -60,7 +59,6 @@ export const SidebarContentComponent: React.FC<SidebarContentComponentProps> = (
 
       <GenerationControls
         uploadedFile={uploadedFile}
-        chapter={parameters.chapter}
         isGenerating={isGenerating}
         generationProgress={generationProgress}
         generationStep={generationStep}

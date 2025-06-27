@@ -8,7 +8,6 @@ import { toast } from '@/hooks/use-toast';
 
 interface GenerationControlsProps {
   uploadedFile: File | null;
-  chapter?: string;
   isGenerating: boolean;
   generationProgress: number;
   generationStep: string;
