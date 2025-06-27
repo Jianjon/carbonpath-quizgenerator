@@ -1,82 +1,46 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Settings2, Info, AlertTriangle } from 'lucide-react';
+import { Settings2, Info } from 'lucide-react';
 import { SampleQuestions } from './SampleQuestions';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Parameters } from '@/types/question';
 
-interface SampleQuestion {
-  id: string;
-  question: string;
-  type: string;
-  options?: string[];
-  answer: string;
-}
-interface ChapterWeight {
-  name: string;
-  weight: number;
-  questions: number;
-}
-interface WeightingConfig {
-  chapterWeights: ChapterWeight[];
-  difficultyDistribution: {
-    easy: number;
-    medium: number;
-    hard: number;
-  };
-  cognitiveDistribution: {
-    remember: number;
-    understand: number;
-    apply: number;
-    analyze: number;
-  };
-  questionTypeWeights: {
-    multipleChoice: number;
-    trueFalse: number;
-    shortAnswer: number;
-    essay: number;
-  };
-}
-interface Parameters {
-  chapter: string;
-  questionStyle: string;
-  questionCount: number;
-  questionTypes: string[];
-  sampleQuestions: SampleQuestion[];
-  weightingConfig: WeightingConfig;
-  keywords?: string;
-  difficultyLevel?: string;
-}
 interface ParameterSettingsProps {
   parameters: Parameters;
   onParametersChange: (parameters: Parameters) => void;
   uploadedFile?: File | null;
 }
+
 export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
   parameters,
   onParametersChange,
   uploadedFile
 }) => {
   const [advancedSettingsEnabled, setAdvancedSettingsEnabled] = useState(false);
+
   const updateParameter = <K extends keyof Parameters,>(key: K, value: Parameters[K]) => {
     onParametersChange({
       ...parameters,
       [key]: value
     });
   };
+
   const updateQuestionCount = (newCount: number) => {
     onParametersChange({
       ...parameters,
       questionCount: newCount
     });
   };
+
   const handleAdvancedSettingsChange = (checked: boolean | "indeterminate") => {
     setAdvancedSettingsEnabled(checked === true);
   };
+
   const getDifficultyDescription = (difficulty: string) => {
     switch (difficulty) {
       case 'easy':
@@ -91,6 +55,7 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
         return '';
     }
   };
+
   return (
     <div className="space-y-6">
       {/* 基本設定 */}
@@ -102,36 +67,6 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* PDF 頁數範圍 - 加強說明 */}
-          <div className="w-full">
-            <Label htmlFor="chapter" className="text-sm font-medium text-gray-700 bg-gray-200 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              PDF 頁數範圍（必填）
-            </Label>
-            <Textarea 
-              id="chapter" 
-              className="mt-1 min-h-[80px] w-full" 
-              placeholder="例如：1-5, 10, 15-20" 
-              value={parameters.chapter} 
-              onChange={e => updateParameter('chapter', e.target.value)} 
-              rows={3} 
-            />
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm space-y-1">
-                  <p className="font-medium text-blue-900">重要說明：</p>
-                  <ul className="text-blue-800 space-y-1 text-xs">
-                    <li>• <strong>必須填寫</strong>：指定要出題的 PDF 頁數範圍</li>
-                    <li>• <strong>頁數定義</strong>：使用 PDF 閱讀器顯示的實際頁數（不是PDF內文標註的頁數）</li>
-                    <li>• <strong>格式範例</strong>：單頁「5」、連續頁「1-10」、多個範圍「1-5, 8, 12-15」</li>
-                    <li>• <strong>出題限制</strong>：AI 只會從您指定的頁數範圍內出題，不會超出範圍</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* 題目風格 */}
           <div className="w-full">
             <Label htmlFor="questionStyle" className="text-sm font-medium text-gray-700 rounded-none px-[4px] bg-gray-200">
@@ -224,6 +159,22 @@ export const ParameterSettings: React.FC<ParameterSettingsProps> = ({
                 <p className="text-blue-700 text-sm mt-1">系統專門生成選擇題</p>
                 <p className="text-blue-600 text-xs mt-1">
                   所有題目將採用 A、B、C、D 四個選項的標準選擇題格式
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* PDF 處理說明 */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 w-full">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 p-2 rounded-full">
+                <Info className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-900 text-base">PDF 處理方式</h3>
+                <p className="text-green-700 text-sm mt-1">系統將自動讀取整份 PDF 文件</p>
+                <p className="text-green-600 text-xs mt-1">
+                  最多處理 10 頁內容，確保生成題目的完整性和準確性
                 </p>
               </div>
             </div>
