@@ -51,7 +51,8 @@ export const QuestionBankGenerator = () => {
     isGenerating, 
     setIsGenerating, 
     generationProgress, 
-    generationStep, 
+    generationStep,
+    pdfPreview,
     generateQuestionsWithAI 
   } = useQuestionGeneration();
   const { updateQuestionsInDatabase, saveQuestionsToDatabase } = useAutoSave(
@@ -94,6 +95,17 @@ export const QuestionBankGenerator = () => {
     setIsGenerating(true);
     try {
       console.log('🚀 開始生成題目...');
+      console.log('檔案資訊:', {
+        name: uploadedFile.name,
+        size: uploadedFile.size,
+        type: uploadedFile.type
+      });
+      console.log('生成參數:', {
+        questionCount: parameters.questionCount,
+        questionTypes: parameters.questionTypes,
+        questionStyle: parameters.questionStyle
+      });
+      
       const questions = await generateQuestionsWithAI(parameters, uploadedFile);
       
       console.log('✅ 題目生成成功');
@@ -109,9 +121,19 @@ export const QuestionBankGenerator = () => {
       
     } catch (error) {
       console.error('❌ 生成題目失敗:', error);
+      
+      let errorMessage = '請重新嘗試';
+      if (error.message.includes('PDF')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('內容')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('AI')) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "生成失敗",
-        description: error.message || '請重新嘗試',
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -156,6 +178,7 @@ export const QuestionBankGenerator = () => {
     isGenerating,
     generationProgress,
     generationStep,
+    pdfPreview,
     onGenerate: handleGenerate,
     onQuestionsChange: handleQuestionsChange
   };

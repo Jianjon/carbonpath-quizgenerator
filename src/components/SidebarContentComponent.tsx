@@ -17,6 +17,7 @@ interface SidebarContentComponentProps {
   isGenerating: boolean;
   generationProgress: number;
   generationStep: string;
+  pdfPreview?: string;
   onGenerate: () => void;
 }
 
@@ -30,6 +31,7 @@ export const SidebarContentComponent: React.FC<SidebarContentComponentProps> = (
   isGenerating,
   generationProgress,
   generationStep,
+  pdfPreview,
   onGenerate
 }) => {
   return (
@@ -62,6 +64,7 @@ export const SidebarContentComponent: React.FC<SidebarContentComponentProps> = (
         isGenerating={isGenerating}
         generationProgress={generationProgress}
         generationStep={generationStep}
+        pdfPreview={pdfPreview}
         onGenerate={onGenerate}
       />
     </div>
