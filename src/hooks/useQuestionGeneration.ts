@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// 設定 PDF.js 使用本地 worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+// 使用 CDN worker，更穩定
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.js';
 
 interface SampleQuestion {
   id: string;
@@ -74,7 +74,7 @@ export const useQuestionGeneration = () => {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStep, setGenerationStep] = useState('');
 
-  // 簡化頁數解析
+  // 極簡化的頁數解析
   const parsePageRange = (pageRange: string): number[] => {
     const pages: number[] = [];
     const parts = pageRange.split(',');
@@ -83,43 +83,36 @@ export const useQuestionGeneration = () => {
       const trimmed = part.trim();
       if (trimmed.includes('-')) {
         const [start, end] = trimmed.split('-').map(p => parseInt(p.trim()));
-        if (!isNaN(start) && !isNaN(end) && start <= end && start > 0) {
-          for (let i = start; i <= end; i++) {
+        if (start && end && start <= end) {
+          for (let i = start; i <= Math.min(end, start + 5); i++) { // 限制範圍
             pages.push(i);
           }
         }
       } else {
         const pageNum = parseInt(trimmed);
-        if (!isNaN(pageNum) && pageNum > 0) {
+        if (pageNum > 0) {
           pages.push(pageNum);
         }
       }
     }
     
-    return [...new Set(pages)].sort((a, b) => a - b);
+    return [...new Set(pages)].slice(0, 5); // 最多5頁
   };
 
-  // 極簡化的 PDF 內容提取
+  // 超簡化的 PDF 內容提取
   const extractPDFContent = async (file: File, pageRange: string): Promise<string> => {
+    console.log('🔍 開始處理 PDF...');
+    setGenerationStep('📖 讀取PDF檔案...');
+    setGenerationProgress(10);
+    
     try {
-      console.log('🔍 開始處理 PDF...');
-      setGenerationStep('📖 讀取PDF檔案...');
-      setGenerationProgress(10);
-      
       const arrayBuffer = await file.arrayBuffer();
       
-      setGenerationStep('🔧 初始化PDF...');
+      setGenerationStep('🔧 載入PDF...');
       setGenerationProgress(20);
       
-      // 最簡單的 PDF 載入配置
-      const pdf = await pdfjsLib.getDocument({
-        data: arrayBuffer,
-        useSystemFonts: false,
-        disableFontFace: true,
-        isEvalSupported: false,
-        disableAutoFetch: true,
-        disableStream: true
-      }).promise;
+      // 最簡單的 PDF 載入
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       
       console.log('✅ PDF 載入成功，總頁數:', pdf.numPages);
       
@@ -129,13 +122,15 @@ export const useQuestionGeneration = () => {
       const pages = parsePageRange(pageRange);
       
       if (pages.length === 0) {
-        throw new Error('請輸入有效的頁數範圍，例如：1-5 或 1,3,8');
+        throw new Error('請輸入有效的頁數範圍，例如：1-3 或 1,2,3');
       }
       
       let content = '';
-      const maxPages = Math.min(pages.length, 10); // 限制最多10頁
       
       setGenerationStep('📖 提取內容...');
+      
+      // 只處理前3頁，避免卡死
+      const maxPages = Math.min(pages.length, 3);
       
       for (let i = 0; i < maxPages; i++) {
         const pageNum = pages[i];
@@ -154,7 +149,7 @@ export const useQuestionGeneration = () => {
             .trim();
           
           if (pageText.length > 10) {
-            content += `\n=== 第 ${pageNum} 頁 ===\n${pageText}\n`;
+            content += `第 ${pageNum} 頁：${pageText}\n\n`;
           }
         } catch (error) {
           console.warn(`跳過第 ${pageNum} 頁:`, error);
@@ -163,7 +158,7 @@ export const useQuestionGeneration = () => {
         setGenerationProgress(30 + (i / maxPages) * 40);
       }
       
-      if (content.length < 50) {
+      if (content.length < 20) {
         throw new Error('PDF 內容太少，請確認是文字版 PDF');
       }
       
@@ -201,14 +196,14 @@ export const useQuestionGeneration = () => {
 PDF 內容：
 ${pdfContent}
 
-請嚴格按照此 JSON 格式回答：
+請嚴格按照此 JSON 格式回答，不要添加任何其他文字：
 [
   {
     "id": "1",
     "content": "題目內容",
     "options": {
       "A": "選項A",
-      "B": "選項B",
+      "B": "選項B", 
       "C": "選項C",
       "D": "選項D"
     },
@@ -221,15 +216,15 @@ ${pdfContent}
     "chapter": "${parameters.chapter}",
     "source_pdf": "${uploadedFile.name}",
     "page_range": "${parameters.chapter}",
-    "tags": ["標籤"]
+    "tags": ["基礎概念"]
   }
-]
-
-要求：題目必須完全基於提供的 PDF 內容，不得添加其他資訊。`;
+]`;
 
       const response = await supabase.functions.invoke('generate-questions', {
         body: {
-          prompt,
+          systemPrompt: '你是出題專家，只根據提供的PDF內容出題',
+          userPrompt: prompt,
+          pdfContent: pdfContent,
           model: 'gpt-4o-mini'
         }
       });
@@ -241,15 +236,17 @@ ${pdfContent}
       setGenerationStep('🔍 處理結果...');
       setGenerationProgress(90);
 
-      let result = response.data?.choices?.[0]?.message?.content || response.data?.generatedText || '';
+      let result = response.data?.generatedText || '';
       
-      // 清理 JSON
-      result = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      
+      if (!result) {
+        throw new Error('AI 未返回結果');
+      }
+
       let questions;
       try {
         questions = JSON.parse(result);
       } catch (e) {
+        console.error('JSON 解析失敗:', e);
         throw new Error('AI 回應格式錯誤');
       }
 
