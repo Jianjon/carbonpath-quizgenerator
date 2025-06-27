@@ -17,19 +17,19 @@ serve(async (req) => {
   try {
     const { systemPrompt, userPrompt, pdfContent, model = 'gpt-4o-mini' } = await req.json();
 
-    console.log('🔥 AI題目生成請求');
+    console.log('🔥 收到AI題目生成請求');
     console.log('模型:', model);
     console.log('PDF內容長度:', pdfContent?.length || 0);
 
     if (!openAIApiKey) {
-      throw new Error('OpenAI API 金鑰未配置');
+      throw new Error('OpenAI API 金鑰未設定');
     }
 
-    if (!pdfContent || pdfContent.length < 20) {
-      throw new Error('PDF內容不足');
+    if (!pdfContent || pdfContent.length < 50) {
+      throw new Error('PDF內容不足，無法生成題目');
     }
 
-    console.log('🤖 發送請求到OpenAI...');
+    console.log('🤖 呼叫OpenAI API...');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -44,34 +44,27 @@ serve(async (req) => {
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.3,
-        max_tokens: 4000
+        max_tokens: 3000
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ OpenAI API 錯誤:', response.status, errorText);
-      throw new Error(`OpenAI API 錯誤：${response.status}`);
+      throw new Error(`OpenAI API 錯誤: ${response.status}`);
     }
 
     const data = await response.json();
     console.log('✅ OpenAI 回應成功');
     
     if (!data.choices?.[0]?.message?.content) {
-      throw new Error('AI回應內容為空');
+      throw new Error('OpenAI 回應內容為空');
     }
 
     const generatedText = data.choices[0].message.content.trim();
-    
-    // 簡單清理
-    const cleanedText = generatedText
-      .replace(/```json/g, '')
-      .replace(/```/g, '')
-      .trim();
-    
-    console.log('🎉 題目生成完成');
+    console.log('📝 生成的內容長度:', generatedText.length);
 
-    return new Response(JSON.stringify({ generatedText: cleanedText }), {
+    return new Response(JSON.stringify({ generatedText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
     
@@ -79,9 +72,9 @@ serve(async (req) => {
     console.error('💥 處理錯誤:', error);
     
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : '系統錯誤'
+      error: error instanceof Error ? error.message : '未知錯誤'
     }), {
-      status: 200,
+      status: 200, // 保持200狀態以便前端處理
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

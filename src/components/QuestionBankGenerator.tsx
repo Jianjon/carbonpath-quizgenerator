@@ -16,7 +16,6 @@ import {
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [parameters, setParameters] = useState<Parameters>({
-    chapter: '',
     questionStyle: 'intuitive',
     questionCount: 10,
     questionTypes: ['multiple-choice'],
@@ -74,21 +73,19 @@ export const QuestionBankGenerator = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // 處理上傳完成事件
+  // 簡化處理上傳完成事件
   const handleUploadComplete = () => {
-    if (!parameters.chapter) {
-      toast({
-        title: "請設定出題範圍",
-        description: "請在基本設定中輸入出題的PDF頁數範圍"
-      });
-    }
+    toast({
+      title: "檔案上傳成功",
+      description: "可以直接開始生成題目"
+    });
   };
 
   const handleGenerate = async () => {
-    if (!uploadedFile && !parameters.chapter) {
+    if (!uploadedFile) {
       toast({
-        title: "請先完成設定",
-        description: "請上傳 PDF 檔案或輸入頁數範圍",
+        title: "請先上傳PDF檔案",
+        description: "需要PDF檔案才能生成題目",
         variant: "destructive"
       });
       return;
@@ -99,15 +96,14 @@ export const QuestionBankGenerator = () => {
       console.log('🚀 開始生成題目...');
       const questions = await generateQuestionsWithAI(parameters, uploadedFile);
       
-      console.log('✅ 題目生成成功，準備保存到資料庫');
+      console.log('✅ 題目生成成功');
       console.log('生成的題目數量:', questions.length);
-      console.log('題目內容預覽:', questions.slice(0, 2));
       
       setGeneratedQuestions(questions);
       
       toast({
         title: "題目生成完成",
-        description: `成功生成 ${questions.length} 道題目並保存到資料庫`,
+        description: `成功生成 ${questions.length} 道題目`,
         variant: "default"
       });
       

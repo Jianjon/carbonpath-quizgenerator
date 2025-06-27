@@ -35,7 +35,7 @@ export interface WeightingConfig {
 }
 
 export interface Parameters {
-  chapter: string;
+  chapter?: string; // 改為可選
   questionStyle: string;
   questionCount: number;
   questionTypes: string[];

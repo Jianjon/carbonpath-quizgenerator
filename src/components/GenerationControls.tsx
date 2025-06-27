@@ -8,7 +8,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface GenerationControlsProps {
   uploadedFile: File | null;
-  chapter: string;
+  chapter?: string;
   isGenerating: boolean;
   generationProgress: number;
   generationStep: string;
@@ -17,17 +17,16 @@ interface GenerationControlsProps {
 
 export const GenerationControls: React.FC<GenerationControlsProps> = ({
   uploadedFile,
-  chapter,
   isGenerating,
   generationProgress,
   generationStep,
   onGenerate
 }) => {
   const handleGenerate = () => {
-    if (!uploadedFile && !chapter) {
+    if (!uploadedFile) {
       toast({
-        title: "請先完成設定",
-        description: "請上傳 PDF 檔案或輸入頁數範圍",
+        title: "請先上傳PDF檔案",
+        description: "需要先上傳PDF檔案才能開始生成題目",
         variant: "destructive"
       });
       return;
@@ -38,13 +37,13 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
   return (
     <Card>
       <CardContent className="pt-4 space-y-3">
-        {/* 生成時間說明 */}
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        {/* 簡化的提示 */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-amber-800">
-              <p className="font-medium mb-1">生成建議</p>
-              <p className="text-xs">推薦生成 5-10 題以確保最佳品質，超過 15 題建議分批處理</p>
+            <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <p className="font-medium mb-1">生成說明</p>
+              <p className="text-xs">系統將讀取整份PDF並生成題目，推薦生成5-15題</p>
             </div>
           </div>
         </div>
@@ -68,7 +67,7 @@ export const GenerationControls: React.FC<GenerationControlsProps> = ({
         
         <Button 
           onClick={handleGenerate} 
-          disabled={!uploadedFile && !chapter || isGenerating} 
+          disabled={!uploadedFile || isGenerating} 
           size="lg" 
           className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
         >

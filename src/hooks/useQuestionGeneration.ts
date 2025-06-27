@@ -11,22 +11,20 @@ export const useQuestionGeneration = () => {
 
   const generateQuestionsWithAI = async (parameters: Parameters, uploadedFile: File | null): Promise<QuestionData[]> => {
     if (!uploadedFile) {
-      throw new Error('請先上傳 PDF 檔案');
-    }
-
-    if (!parameters.chapter?.trim()) {
-      throw new Error('請輸入頁數範圍');
+      throw new Error('請先上傳PDF檔案');
     }
 
     setGenerationProgress(0);
     setGenerationStep('🚀 開始處理...');
     
     try {
-      const pdfContent = await extractPDFContent(uploadedFile, parameters.chapter, setGenerationStep, setGenerationProgress);
+      console.log('📖 開始提取PDF內容...');
+      const pdfContent = await extractPDFContent(uploadedFile, setGenerationStep, setGenerationProgress);
       
-      setGenerationStep('🤖 AI 分析中...');
-      setGenerationProgress(75);
+      setGenerationStep('🤖 AI分析中...');
+      setGenerationProgress(80);
       
+      console.log('🤖 開始AI生成...');
       const questions = await callAIService(parameters, pdfContent, uploadedFile);
 
       setGenerationProgress(100);
@@ -40,7 +38,7 @@ export const useQuestionGeneration = () => {
       return questions;
       
     } catch (error) {
-      console.error('生成失敗:', error);
+      console.error('❌ 生成失敗:', error);
       setGenerationProgress(0);
       setGenerationStep('');
       throw error;
