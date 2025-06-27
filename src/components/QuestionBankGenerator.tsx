@@ -5,67 +5,13 @@ import { useQuestionGeneration } from '@/hooks/useQuestionGeneration';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { MobileLayout } from './MobileLayout';
 import { DesktopLayout } from './DesktopLayout';
-
-interface SampleQuestion {
-  id: string;
-  question: string;
-  type: string;
-  options?: string[];
-  answer: string;
-}
-
-interface ChapterWeight {
-  name: string;
-  weight: number;
-  questions: number;
-}
-
-interface WeightingConfig {
-  chapterWeights: ChapterWeight[];
-  difficultyDistribution: {
-    easy: number;
-    medium: number;
-    hard: number;
-  };
-  cognitiveDistribution: {
-    remember: number;
-    understand: number;
-    apply: number;
-    analyze: number;
-  };
-  questionTypeWeights: {
-    multipleChoice: number;
-    trueFalse: number;
-    shortAnswer: number;
-    essay: number;
-  };
-}
-
-interface QuestionData {
-  id: string;
-  content: string;
-  options: Record<string, string>;
-  correct_answer: string;
-  explanation: string;
-  question_type: string;
-  difficulty: number;
-  difficulty_label: string;
-  bloom_level: number;
-  chapter: string;
-  source_pdf?: string;
-  page_range?: string;
-  tags?: string[];
-}
-
-interface Parameters {
-  chapter: string;
-  questionStyle: string;
-  questionCount: number;
-  questionTypes: string[];
-  sampleQuestions: SampleQuestion[];
-  keywords?: string;
-  weightingConfig: WeightingConfig;
-}
+import { 
+  SampleQuestion, 
+  ChapterWeight, 
+  WeightingConfig, 
+  QuestionData, 
+  Parameters 
+} from '@/types/question';
 
 export const QuestionBankGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -159,7 +105,6 @@ export const QuestionBankGenerator = () => {
       
       setGeneratedQuestions(questions);
       
-      // 顯示成功訊息，確認題目已保存
       toast({
         title: "題目生成完成",
         description: `成功生成 ${questions.length} 道題目並保存到資料庫`,
@@ -178,14 +123,12 @@ export const QuestionBankGenerator = () => {
     }
   };
 
-  // 處理題目更新時，確保同步更新到資料庫
   const handleQuestionsChange = async (updatedQuestions: QuestionData[]) => {
     console.log('📝 題目被修改，準備更新到資料庫');
     console.log('修改後的題目數量:', updatedQuestions.length);
     
     setGeneratedQuestions(updatedQuestions);
     
-    // 當題目被修改時，立即更新到資料庫
     if (sessionId && updatedQuestions.length > 0) {
       try {
         await updateQuestionsInDatabase(updatedQuestions);

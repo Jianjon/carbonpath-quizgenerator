@@ -5,51 +5,7 @@ import { FileText } from 'lucide-react';
 import { PDFUploader } from './PDFUploader';
 import { ParameterSettings } from './ParameterSettings';
 import { GenerationControls } from './GenerationControls';
-
-interface SampleQuestion {
-  id: string;
-  question: string;
-  type: string;
-  options?: string[];
-  answer: string;
-}
-
-interface ChapterWeight {
-  name: string;
-  weight: number;
-  questions: number;
-}
-
-interface WeightingConfig {
-  chapterWeights: ChapterWeight[];
-  difficultyDistribution: {
-    easy: number;
-    medium: number;
-    hard: number;
-  };
-  cognitiveDistribution: {
-    remember: number;
-    understand: number;
-    apply: number;
-    analyze: number;
-  };
-  questionTypeWeights: {
-    multipleChoice: number;
-    trueFalse: number;
-    shortAnswer: number;
-    essay: number;
-  };
-}
-
-interface Parameters {
-  chapter: string;
-  questionStyle: string;
-  questionCount: number;
-  questionTypes: string[];
-  sampleQuestions: SampleQuestion[];
-  keywords?: string;
-  weightingConfig: WeightingConfig;
-}
+import { SampleQuestion, ChapterWeight, WeightingConfig, Parameters } from '@/types/question';
 
 interface SidebarContentComponentProps {
   uploadedFile: File | null;
